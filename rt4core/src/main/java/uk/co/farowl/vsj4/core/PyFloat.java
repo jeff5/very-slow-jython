@@ -287,19 +287,18 @@ public class PyFloat implements WithClass {
     static class Formatter extends FloatFormatter {
 
         /**
-         * If {@code true}, give {@code printf}-style meanings to
+         * If {@code true}, give old-style %-formatting meanings to
          * {@link FormatSpec#type}.
          */
-        final boolean printf;
+        final boolean oldfmt;
 
         /**
          * Prepare a {@link Formatter} in support of
-         * {@code str.__mod__}, that is, traditional
-         * {@code printf}-style formatting.
+         * {@code str.__mod__}, that is, old-style %-formatting.
          *
          * @param spec a parsed format specification.
-         * @param printf f {@code true}, interpret {@code spec}
-         *     {@code printf}-style, otherwise as
+         * @param oldfmt f {@code true}, interpret {@code spec}
+         *     old-style %-formatting, otherwise as
          *     {@link Formatter#Formatter(FormatSpec)
          *     Formatter(FormatSpec)}
          * @throws FormatOverflow if a value is out of range (including
@@ -307,9 +306,9 @@ public class PyFloat implements WithClass {
          * @throws FormatError if an unsupported format character is
          *     encountered
          */
-        Formatter(FormatSpec spec, boolean printf) throws FormatError {
-            super(validated(spec, printf));
-            this.printf = printf;
+        Formatter(FormatSpec spec, boolean oldfmt) throws FormatError {
+            super(validated(spec, oldfmt));
+            this.oldfmt = oldfmt;
         }
 
         /**
@@ -334,14 +333,14 @@ public class PyFloat implements WithClass {
          * @throws FormatError on failure to validate
          */
         private static FormatSpec validated(FormatSpec spec,
-                boolean printf) throws FormatError {
-            String type = TYPE.getName();
+                boolean oldfmt) throws FormatError {
 
             switch (spec.type) {
 
                 case 'n':
-                    if (spec.grouping) {
-                        throw notAllowed("Grouping", type, spec.type);
+                    if (spec.grouper != 0) {
+                        throw notAllowed("Grouping", spec.grouper,
+                                TYPE.getName(), spec.type);
                     }
                     //$FALL-THROUGH$
 
@@ -353,21 +352,22 @@ public class PyFloat implements WithClass {
                 case 'F':
                 case 'G':
                 case '%':
+                    // TODO Alternate forms allowed in Python 3
                     // Check for disallowed parts of the specification
                     if (spec.alternate) {
-                        throw alternateFormNotAllowed(type);
+                        throw alternateFormNotAllowed(TYPE.getName());
                     }
                     break;
 
                 case 'r':
                 case 's':
-                    // Only allow for printf-style formatting
-                    if (printf) { break; }
+                    // Only allow for old-style %-formatting
+                    if (oldfmt) { break; }
                     //$FALL-THROUGH$
 
                 default:
                     // The type code was not recognised
-                    throw unknownFormat(spec.type, type);
+                    throw unknownFormat(spec.type, TYPE.getName());
             }
 
             /*

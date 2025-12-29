@@ -10,7 +10,6 @@ import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
 
-
 /**
  * A class that provides the implementation of floating-point
  * formatting. In a limited way, it acts like a StringBuilder to which
@@ -188,7 +187,8 @@ public abstract class FloatFormatter
      * here. At the point this is used, we know the {@link #spec} is one
      * of the floating-point types. This entry point allows explicit
      * control of the prefix of positive numbers, overriding defaults
-     * for the format type.
+     * for the format type. (We use this before the imaginary part of a
+     * complex number.)
      *
      * @param value to convert
      * @param positivePrefix to use before positive values (e.g. "+") or
@@ -208,9 +208,9 @@ public abstract class FloatFormatter
          */
         setStart();
 
-        // Precision defaults to 6 (or 12 for none-format)
-        int precision =
-                spec.getPrecision(FormatSpec.specified(spec.type) ? 6 : 12);
+        // Precision defaults to 6 (or 17 for none-format)
+        int precision = spec
+                .getPrecision(FormatSpec.specified(spec.type) ? 6 : 17);
 
         // Guard against excessive result precision
         // XXX Possibly better raised before result is allocated/sized.
@@ -301,7 +301,7 @@ public abstract class FloatFormatter
         if (Character.isUpperCase(spec.type)) { uppercase(); }
 
         // If required to, group the whole-part digits.
-        if (spec.grouping) { groupDigits(3, ','); }
+        if (spec.group > 0) { groupDigits(spec.group, spec.grouper); }
 
         return this;
     }
@@ -535,7 +535,8 @@ public abstract class FloatFormatter
      * {@link BigDecimal} to provide conversion and rounding. These
      * variants are g-format proper, alternate g-format (available for
      * "%#g" formatting), n-format (as g but subsequently
-     * "internationalised"), and none-format (type code FormatSpec.NONE).
+     * "internationalised"), and none-format (type code
+     * FormatSpec.NONE).
      * <p>
      * None-format is the basis of {@code float.__str__}.
      * <p>
@@ -611,7 +612,7 @@ public abstract class FloatFormatter
         // Precision 0 behaves as 1
         precision = Math.max(1, precision);
 
-        // Use exponential notation if exponent would be bigger thatn:
+        // Use exponential notation if exponent would be bigger than:
         int expThreshold = precision + expThresholdAdj;
 
         if (signAndSpecialNumber(value, positivePrefix)) {

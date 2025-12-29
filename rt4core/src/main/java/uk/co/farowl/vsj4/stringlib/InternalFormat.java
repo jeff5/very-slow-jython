@@ -69,7 +69,7 @@ public class InternalFormat {
         protected int lenSign;
         /**
          * The length of the whole part (to left of the decimal point or
-         * exponent)
+         * exponent).
          */
         protected int lenWhole;
 
@@ -461,13 +461,21 @@ public class InternalFormat {
             // Append the trailing space
             for (int i = 0; i < trailing; i++) { result.append(fill); }
 
-            // Check for special case
-            if (align == '=' && fill == '0' && spec.grouping) {
+            /*
+             * Check for special case where we shall extend the grouping
+             * already applied to the whole part into the left
+             * 0-padding.
+             */
+            if (align == '=' && fill == '0' && spec.group > 0) {
                 /*
-                 * We must extend the grouping separator into the
-                 * padding
+                 * Extend the grouping separator into the padding,
+                 * EXCEPT if there was originally no whole part (occurs
+                 * for inf, nan).
                  */
-                zeroPadAfterSignWithGroupingFixup(3, ',');
+                if (lenWhole > leading) {
+                    zeroPadAfterSignWithGroupingFixup(spec.group,
+                            spec.grouper);
+                }
             }
         }
 
@@ -505,7 +513,7 @@ public class InternalFormat {
          * '-<b>0</b>,000,000,001,200,000,000.0000'
          * </pre>
          *
-         * @param groupSize normally 3.
+         * @param groupSize normally 3 or 4.
          * @param comma or some other character to use as a separator.
          */
         protected void zeroPadAfterSignWithGroupingFixup(int groupSize,
@@ -787,11 +795,10 @@ public class InternalFormat {
         public final boolean alternate;
         /** Width to which to pad the result, or -1 if unspecified. */
         public final int width;
-        /**
-         * Insert the grouping separator (which in Python always
-         * indicates a group-size of 3).
-         */
-        public final boolean grouping;
+        /** Grouping size (or &le;0 for no grouping)). */
+        public final int group;
+        /** The group separator (if {@link #group} is &gt;0). */
+        public final char grouper;
         /** Precision decoded from the format, or -1 if unspecified. */
         public final int precision;
         /** Type key from the format, or U+FFFF if unspecified. */
@@ -827,7 +834,7 @@ public class InternalFormat {
          *     has been specified).
          */
         public static final boolean specified(int value) {
-            return value >= 0;
+            return value >= 0; // UNSPECIFIED = -1
         }
 
         /**
@@ -845,19 +852,21 @@ public class InternalFormat {
          * @param alternate true to request alternate formatting mode
          *     ({@code '#'} flag).
          * @param width of field after padding or -1 to default
-         * @param grouping true to request comma-separated groups
+         * @param group if non-zero digit group size (usually 3 or 4)
+         * @param grouper character separating groups
          * @param precision (e.g. decimal places) or -1 to default
          * @param type indicator character
          */
         public FormatSpec(char fill, char align, char sign,
-                boolean alternate, int width, boolean grouping,
+                boolean alternate, int width, int group, char grouper,
                 int precision, char type) {
             this.fill = fill;
             this.align = align;
             this.sign = sign;
             this.alternate = alternate;
             this.width = width;
-            this.grouping = grouping;
+            this.group = group;
+            this.grouper = grouper;
             this.precision = precision;
             this.type = type;
         }
@@ -874,7 +883,7 @@ public class InternalFormat {
             if (specified(sign)) { buf.append(sign); }
             if (alternate) { buf.append('#'); }
             if (specified(width)) { buf.append(width); }
-            if (grouping) { buf.append(','); }
+            if (specified(group)) { buf.append(grouper); }
             if (specified(precision)) {
                 buf.append('.').append(precision);
             }
@@ -908,7 +917,8 @@ public class InternalFormat {
                     specified(sign) ? sign : other.sign, //
                     alternate || other.alternate, //
                     specified(width) ? width : other.width, //
-                    grouping || other.grouping, //
+                    specified(group) ? group : other.group, //
+                    specified(grouper) ? grouper : other.grouper, //
                     specified(precision) ? precision : other.precision, //
                     specified(type) ? type : other.type //
             );
@@ -918,16 +928,16 @@ public class InternalFormat {
          * Defaults applicable to most numeric types. Equivalent to "
          * &gt;"
          */
-        public static final FormatSpec NUMERIC = new FormatSpec(' ',
-                '>', FormatSpec.NONE, false, FormatSpec.UNSPECIFIED,
-                false, FormatSpec.UNSPECIFIED, FormatSpec.NONE);
+        public static final FormatSpec NUMERIC =
+                new FormatSpec(' ', '>', NONE, false, UNSPECIFIED,
+                        UNSPECIFIED, NONE, UNSPECIFIED, NONE);
 
         /**
          * Defaults applicable to string types. Equivalent to " &lt;"
          */
-        public static final FormatSpec STRING = new FormatSpec(' ', '<',
-                FormatSpec.NONE, false, FormatSpec.UNSPECIFIED, false,
-                FormatSpec.UNSPECIFIED, FormatSpec.NONE);
+        public static final FormatSpec STRING =
+                new FormatSpec(' ', '<', NONE, false, UNSPECIFIED,
+                        UNSPECIFIED, NONE, UNSPECIFIED, NONE);
 
         /**
          * Constructor offering just precision and type.
@@ -940,7 +950,7 @@ public class InternalFormat {
          * @param type indicator character
          */
         public FormatSpec(int precision, char type) {
-            this(' ', '>', FormatSpec.NONE, false, UNSPECIFIED, false,
+            this(' ', '>', NONE, false, UNSPECIFIED, UNSPECIFIED, NONE,
                     precision, type);
         }
 
@@ -1009,6 +1019,11 @@ public class InternalFormat {
             this.ptr = 0;
         }
 
+        @Override
+        public String toString() {
+            return spec.substring(0, ptr) + "|" + spec.substring(ptr);
+        }
+
         /**
          * Parse the specification with which this object was
          * initialised into an {@link FormatSpec}, which is an object
@@ -1029,11 +1044,13 @@ public class InternalFormat {
          */
         FormatSpec parse() {
 
-            char fill = FormatSpec.NONE, align = FormatSpec.NONE;
-            char sign = FormatSpec.NONE, type = FormatSpec.NONE;
-            boolean alternate = false, grouping = false;
-            int width = FormatSpec.UNSPECIFIED,
-                    precision = FormatSpec.UNSPECIFIED;
+            char fill = FormatSpec.NONE, align = FormatSpec.NONE,
+                    sign = FormatSpec.NONE, type = FormatSpec.NONE,
+                    grouper = FormatSpec.NONE;
+            boolean alternate = false;
+            int width = FormatSpec.UNSPECIFIED;
+            int precision = FormatSpec.UNSPECIFIED;
+            int group = FormatSpec.UNSPECIFIED;
 
             // Scan [[fill]align] ...
             if (isAlign()) {
@@ -1082,8 +1099,8 @@ public class InternalFormat {
             // Scan [width]
             if (isDigit()) { width = scanInteger(); }
 
-            // Scan [,][.precision][type]
-            grouping = scanPast(',');
+            // Scan [grouper][.precision][type]
+            if (isAt(",_")) { grouper = spec.charAt(ptr++); }
 
             // Scan [.precision]
             if (scanPast('.')) {
@@ -1098,6 +1115,12 @@ public class InternalFormat {
             // Scan [type]
             if (ptr < spec.length()) { type = spec.charAt(ptr++); }
 
+            // If grouping was specified, work out the group size.
+            if (grouper != FormatSpec.NONE) {
+                // Hex, octal and binary group in 4s. Otherwise 3s.
+                group = "boxX".indexOf(type) < 0 ? 3 : 4;
+            }
+
             // If we haven't reached the end, something is wrong
             if (ptr != spec.length()) {
                 throw new IllegalArgumentException(
@@ -1106,7 +1129,7 @@ public class InternalFormat {
 
             // Create a specification
             return new FormatSpec(fill, align, sign, alternate, width,
-                    grouping, precision, type);
+                    group, grouper, precision, type);
         }
 
         /**
@@ -1152,7 +1175,6 @@ public class InternalFormat {
             while (isDigit()) { ptr++; }
             return Integer.parseInt(spec.substring(p, ptr));
         }
-
     }
 
     /**
