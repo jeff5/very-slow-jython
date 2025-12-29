@@ -11,14 +11,14 @@ import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.internal.IntegerFormatter;
+import uk.co.farowl.vsj4.internal.InternalFormat;
+import uk.co.farowl.vsj4.internal.InternalFormat.AbstractFormatter;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.kernel.Representation;
-import uk.co.farowl.vsj4.stringlib.IntegerFormatter;
-import uk.co.farowl.vsj4.stringlib.InternalFormat;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.AbstractFormatter;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
@@ -202,6 +202,13 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
     // int methods ----------------------------------------------------
 
+    /**
+     * Format the {@code self} object.
+     *
+     * @param self to format
+     * @param formatSpec specification
+     * @return the formatted string from {@code self}
+     */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 

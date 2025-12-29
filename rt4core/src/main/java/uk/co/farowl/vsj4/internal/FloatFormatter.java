@@ -1,15 +1,15 @@
 // Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.stringlib;
+package uk.co.farowl.vsj4.internal;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatUnknown;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
 
 /**
  * A class that provides the implementation of floating-point

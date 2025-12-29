@@ -2946,6 +2946,13 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     // TODO implement __format__ and (revised) stringlib
 
+    /**
+     * Format the {@code self} object.
+     *
+     * @param self to format
+     * @param formatSpec specification
+     * @return the formatted string from {@code self}
+     */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
         throw new MissingFeature("str.__format__");

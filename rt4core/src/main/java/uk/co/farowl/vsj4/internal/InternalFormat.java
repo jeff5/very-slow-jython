@@ -1,6 +1,6 @@
 // Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.stringlib;
+package uk.co.farowl.vsj4.internal;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 
@@ -134,6 +134,12 @@ public class InternalFormat {
             return this;
         }
 
+        /**
+         * Append one character.
+         *
+         * @param c character to append
+         * @return {@code this} formatter
+         */
         public AbstractFormatter append(int c) {
             result.appendCodePoint(c);
             return this;
@@ -1169,6 +1175,12 @@ public class InternalFormat {
     public static class FormatError extends Exception {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Construct a generic {@link FormatError} for a particular type
+         * code.
+         *
+         * @param message for the exception
+         */
         public FormatError(String message) { super(message); }
     }
 
@@ -1180,6 +1192,11 @@ public class InternalFormat {
     public static class FormatOverflow extends FormatError {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Construct {@link FormatOverflow} for a particular type code.
+         *
+         * @param message for the exception
+         */
         public FormatOverflow(String message) { super(message); }
     }
 
@@ -1194,6 +1211,11 @@ public class InternalFormat {
     public static class FormatUnknown extends FormatError {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * Construct {@link FormatUnknown} for a particular type code.
+         *
+         * @param typeCode character of the unknown format type
+         */
         public FormatUnknown(char typeCode) {
             super(String.format("Unknown format code '%c'", typeCode));
         }

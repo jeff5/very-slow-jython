@@ -13,14 +13,14 @@ import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.internal.EmptyException;
+import uk.co.farowl.vsj4.internal.FloatFormatter;
+import uk.co.farowl.vsj4.internal.InternalFormat;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
-import uk.co.farowl.vsj4.stringlib.FloatFormatter;
-import uk.co.farowl.vsj4.stringlib.InternalFormat;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
@@ -226,7 +226,13 @@ public class PyFloat implements WithClass {
 
     // float methods -------------------------------------------------
 
-    // TODO: implement __format__ and (revised) stringlib
+    /**
+     * Format the {@code self} object.
+     *
+     * @param self to format
+     * @param formatSpec specification
+     * @return the formatted string from {@code self}
+     */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 
