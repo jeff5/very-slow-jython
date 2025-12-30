@@ -143,8 +143,8 @@ public class Abstract {
     }
 
     /**
-     * {@code o[i1:12] = value} with Python semantics, where {@code o} may
-     * be a mapping or a sequence.
+     * {@code o[i1:12] = value} with Python semantics, where {@code o}
+     * may be a mapping or a sequence.
      *
      * @param o object to operate on
      * @param i1 index of first item in slice
@@ -187,8 +187,8 @@ public class Abstract {
     }
 
     /**
-     * {@code del o[i1:12]} with Python semantics, where {@code o} may be
-     * a mapping or a sequence.
+     * {@code del o[i1:12]} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
      *
      * @param o object to operate on
      * @param i1 index of first item in slice
@@ -198,7 +198,8 @@ public class Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_DelSlice in abstract.c
-    public static void delSlice(Object o, int i1, int i2) throws Throwable {
+    public static void delSlice(Object o, int i1, int i2)
+            throws Throwable {
         Object key = new PySlice(i1, i2);
         // Decisions are based on types of o and key
         try {
@@ -1357,9 +1358,9 @@ public class Abstract {
      * should be impossible in a correct interpreter. This is a sort of
      * {@link PyBaseException TypeError} against the {@code self}
      * argument, but occurring where no programming error should be able
-     * to induce it (e.g. coercion fails after we have passed the check
-     * that descriptors make on their {@code obj}, or when invoking a
-     * special method found via an {@link Representation} object.
+     * to induce it. E.g. coercion failed after we have passed the check
+     * that descriptors make on their {@code obj}, or we invoked a
+     * special method found via a {@link Representation} object.
      *
      * @param d expected kind of argument
      * @param o actual argument (not its type)

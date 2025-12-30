@@ -3,7 +3,7 @@
 package uk.co.farowl.vsj4.internal;
 
 import uk.co.farowl.vsj4.core.PySequence;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
 
 /**
  * A class that provides the implementation of {@code str} formatting.
@@ -11,8 +11,7 @@ import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
  * formatted according to the format specifier supplied at construction.
  * These are ephemeral objects that are not, on their own, thread safe.
  */
-public abstract class TextFormatter
-        extends InternalFormat.AbstractFormatter {
+public abstract class TextFormatter extends Formats.AbstractFormatter {
 
     /**
      * Construct the formatter from a client-supplied buffer, to which

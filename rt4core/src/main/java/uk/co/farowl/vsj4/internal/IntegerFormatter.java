@@ -4,10 +4,10 @@ package uk.co.farowl.vsj4.internal;
 
 import java.math.BigInteger;
 
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
+import uk.co.farowl.vsj4.internal.Formats.FormatError;
+import uk.co.farowl.vsj4.internal.Formats.FormatOverflow;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatUnknown;
 
 /**
  * A class that provides the implementation of integer formatting. In a
@@ -17,7 +17,7 @@ import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
  * objects that are not, on their own, thread safe.
  */
 public abstract class IntegerFormatter
-        extends InternalFormat.AbstractFormatter {
+        extends Formats.AbstractFormatter {
 
     /**
      * Construct the formatter from a client-supplied buffer, to which
@@ -43,28 +43,6 @@ public abstract class IntegerFormatter
          * indicator 0b
          */
         this(new StringBuilder(34), spec);
-    }
-
-    /*
-     * Re-implement the text appends so they return the right type.
-     */
-    @Override
-    public IntegerFormatter append(char c) {
-        super.append(c);
-        return this;
-    }
-
-    @Override
-    public IntegerFormatter append(CharSequence csq) {
-        super.append(csq);
-        return this;
-    }
-
-    @Override
-    public IntegerFormatter append(CharSequence csq, int start, int end) //
-            throws IndexOutOfBoundsException {
-        super.append(csq, start, end);
-        return this;
     }
 
     /**

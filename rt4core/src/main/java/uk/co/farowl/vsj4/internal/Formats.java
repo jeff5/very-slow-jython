@@ -8,7 +8,7 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
  * Static methods and classes for representing a format string and
  * building the formatted output.
  */
-public class InternalFormat {
+public class Formats {
 
     /**
      * Create a {@link FormatSpec} object by parsing a format
@@ -594,21 +594,6 @@ public class InternalFormat {
         public static FormatError
                 alternateFormNotAllowed(String forType, char code) {
             return notAllowed("Alternate form", '#', forType, code);
-        }
-
-        /**
-         * Convenience method returning a {@link FormatError} reporting
-         * that the given alignment flag is not allowed in a format
-         * specifier for the named type.
-         *
-         * @param align type of alignment
-         * @param forType the type it was found applied to
-         * @return exception to throw
-         */
-        public static FormatError alignmentNotAllowed(char align,
-                String forType) {
-            return notAllowed("'" + align + "' alignment flag",
-                    forType);
         }
 
         /**

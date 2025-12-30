@@ -23,12 +23,12 @@ import java.util.stream.StreamSupport;
 import uk.co.farowl.vsj4.core.PySequence.Delegate;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
-import uk.co.farowl.vsj4.internal.InternalFormat;
-import uk.co.farowl.vsj4.internal.InternalFormat.AbstractFormatter;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
+import uk.co.farowl.vsj4.internal.Formats;
+import uk.co.farowl.vsj4.internal.Formats.AbstractFormatter;
+import uk.co.farowl.vsj4.internal.Formats.FormatError;
+import uk.co.farowl.vsj4.internal.Formats.FormatOverflow;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatUnknown;
 import uk.co.farowl.vsj4.internal.TextFormatter;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
@@ -252,7 +252,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @return a Python {@code str}
      */
     public static PyUnicode fromJavaString(String s) {
-        // XXX share simple cases len==0 len==1 & ascii?
+        // TODO share simple cases len==0, len==1 & ascii?
         return new PyUnicode(s);
     }
 
@@ -2950,8 +2950,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
-    // TODO implement __format__ and (revised) stringlib
-
     /**
      * Format the {@code self} object.
      *
@@ -2968,7 +2966,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
         try {
             // Parse the specification
-            FormatSpec spec = InternalFormat.fromText(stringFormatSpec);
+            FormatSpec spec = Formats.fromText(stringFormatSpec);
 
             // Get a formatter for the specification
             TextFormatter f = new StrFormatter(spec);
@@ -2988,8 +2986,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
         } catch (FormatError fe) {
             throw PyErr.format(PyExc.ValueError, fe.getMessage());
         } catch (NoConversion e) {
-            throw Abstract.impossibleArgumentError(TYPE.getName(),
-                    self);
+            throw Abstract.impossibleArgumentError("string", self);
         }
     }
 

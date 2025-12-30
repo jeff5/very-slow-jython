@@ -11,13 +11,13 @@ import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.internal.Formats;
+import uk.co.farowl.vsj4.internal.Formats.AbstractFormatter;
+import uk.co.farowl.vsj4.internal.Formats.FormatError;
+import uk.co.farowl.vsj4.internal.Formats.FormatOverflow;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatUnknown;
 import uk.co.farowl.vsj4.internal.IntegerFormatter;
-import uk.co.farowl.vsj4.internal.InternalFormat;
-import uk.co.farowl.vsj4.internal.InternalFormat.AbstractFormatter;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
@@ -218,7 +218,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
         try {
             // Parse the specification
-            FormatSpec spec = InternalFormat.fromText(stringFormatSpec);
+            FormatSpec spec = Formats.fromText(stringFormatSpec);
 
             // Get a formatter for the specification
             AbstractFormatter f;
@@ -244,88 +244,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
         } catch (FormatError fe) {
             throw PyErr.format(PyExc.ValueError, fe.getMessage());
         } catch (NoConversion e) {
-            throw Abstract.impossibleArgumentError(TYPE.getName(),
-                    self);
-        }
-    }
-
-    // formatter ------------------------------------------------------
-
-    /**
-     * An {@link IntegerFormatter}, constructed from a
-     * {@link FormatSpec}, with validations customised for
-     * {@code int.__format__}.
-     */
-    private static class Formatter extends IntegerFormatter {
-
-        /**
-         * Prepare an {@link IntegerFormatter} in support of
-         * {@link PyLong#__format__(Object, Object) int.__format__}.
-         *
-         * @param spec a parsed PEP-3101 format specification.
-         * @throws FormatError if an unsupported format is encountered
-         */
-        Formatter(FormatSpec spec) throws FormatError {
-            super(validated(spec));
-        }
-
-        /**
-         * Validations and defaults specific to {@code int.__format__}.
-         * (Note that %-formatting has slightly different rules.)
-         *
-         * @param spec to validate
-         * @return validated spec with defaults filled
-         * @throws FormatError on failure to validate
-         */
-        private static FormatSpec validated(FormatSpec spec)
-                throws FormatError {
-            switch (spec.type) {
-
-                case 'c':
-                    // Character data: specific prohibitions.
-                    if (FormatSpec.specified(spec.sign)) {
-                        throw signNotAllowed("integer", spec.type);
-                    } else if (spec.alternate) {
-                        throw alternateFormNotAllowed("integer",
-                                spec.type);
-                    }
-                    // $FALL-THROUGH$
-
-                case 'n':
-                    if (spec.group > 0) {
-                        throw notAllowed("Grouping", spec.grouper,
-                                "integer", spec.type);
-                    }
-                    // $FALL-THROUGH$
-
-                case 'b':
-                case 'o':
-                case 'x':
-                case 'X':
-                case FormatSpec.NONE:
-                case 'd':
-                    // Check for disallowed parts of the specification
-                    if (FormatSpec.specified(spec.precision)) {
-                        throw precisionNotAllowed("integer");
-                    }
-                    break;
-
-                default:
-                    // The type code was not recognised
-                    throw new FormatUnknown(spec.type);
-            }
-
-            /*
-             * spec may be incomplete. The defaults are those commonly
-             * used for numeric formats.
-             */
-            return spec.withDefaults(FormatSpec.NUMERIC);
-        }
-
-        @Override
-        public IntegerFormatter format(Object o)
-                throws NoConversion, FormatError {
-            return format(convertToBigInteger(o));
+            throw Abstract.impossibleArgumentError("integer", self);
         }
     }
 
@@ -675,4 +594,83 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
     private static final String TOO_LARGE =
             "%s too large to convert to %s";
+    // formatter ------------------------------------------------------
+
+    /**
+     * An {@link IntegerFormatter}, constructed from a
+     * {@link FormatSpec}, with validations customised for
+     * {@code int.__format__}.
+     */
+    private static class Formatter extends IntegerFormatter {
+
+        /**
+         * Prepare an {@link IntegerFormatter} in support of
+         * {@link PyLong#__format__(Object, Object) int.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @throws FormatError if an unsupported format is encountered
+         */
+        Formatter(FormatSpec spec) throws FormatError {
+            super(validated(spec));
+        }
+
+        /**
+         * Validations and defaults specific to {@code int.__format__}.
+         * (Note that %-formatting has slightly different rules.)
+         *
+         * @param spec to validate
+         * @return validated spec with defaults filled
+         * @throws FormatError on failure to validate
+         */
+        private static FormatSpec validated(FormatSpec spec)
+                throws FormatError {
+            switch (spec.type) {
+
+                case 'c':
+                    // Character data: specific prohibitions.
+                    if (FormatSpec.specified(spec.sign)) {
+                        throw signNotAllowed("integer", spec.type);
+                    } else if (spec.alternate) {
+                        throw alternateFormNotAllowed("integer",
+                                spec.type);
+                    }
+                    // $FALL-THROUGH$
+
+                case 'n':
+                    if (spec.group > 0) {
+                        throw notAllowed("Grouping", spec.grouper,
+                                "integer", spec.type);
+                    }
+                    // $FALL-THROUGH$
+
+                case 'b':
+                case 'o':
+                case 'x':
+                case 'X':
+                case FormatSpec.NONE:
+                case 'd':
+                    // Check for disallowed parts of the specification
+                    if (FormatSpec.specified(spec.precision)) {
+                        throw precisionNotAllowed("integer");
+                    }
+                    break;
+
+                default:
+                    // The type code was not recognised
+                    throw new FormatUnknown(spec.type);
+            }
+
+            /*
+             * spec may be incomplete. The defaults are those commonly
+             * used for numeric formats.
+             */
+            return spec.withDefaults(FormatSpec.NUMERIC);
+        }
+
+        @Override
+        public IntegerFormatter format(Object o)
+                throws NoConversion, FormatError {
+            return format(convertToBigInteger(o));
+        }
+    }
 }

@@ -6,10 +6,10 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
-import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
+import uk.co.farowl.vsj4.internal.Formats.FormatError;
+import uk.co.farowl.vsj4.internal.Formats.FormatOverflow;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatUnknown;
 
 /**
  * A class that provides the implementation of floating-point
@@ -18,8 +18,7 @@ import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
  * the format specifier supplied at construction. These are ephemeral
  * objects that are not, on their own, thread safe.
  */
-public abstract class FloatFormatter
-        extends InternalFormat.AbstractFormatter {
+public abstract class FloatFormatter extends Formats.AbstractFormatter {
 
     /** The rounding mode dominant in the formatter. */
     static final RoundingMode ROUND_PY = RoundingMode.HALF_EVEN;
@@ -142,28 +141,6 @@ public abstract class FloatFormatter
     protected int[] sectionLengths() {
         return new int[] {lenSign, lenWhole, lenPoint, lenFraction,
                 lenMarker, lenExponent};
-    }
-
-    /*
-     * Re-implement the text appends so they return the right type.
-     */
-    @Override
-    public FloatFormatter append(char c) {
-        super.append(c);
-        return this;
-    }
-
-    @Override
-    public FloatFormatter append(CharSequence csq) {
-        super.append(csq);
-        return this;
-    }
-
-    @Override
-    public FloatFormatter append(CharSequence csq, int start, int end)
-            throws IndexOutOfBoundsException {
-        super.append(csq, start, end);
-        return this;
     }
 
     /**
