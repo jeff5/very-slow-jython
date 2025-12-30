@@ -13,10 +13,16 @@ import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.internal.EmptyException;
+import uk.co.farowl.vsj4.internal.FloatFormatter;
+import uk.co.farowl.vsj4.internal.Formats;
+import uk.co.farowl.vsj4.internal.Formats.FormatError;
+import uk.co.farowl.vsj4.internal.Formats.FormatOverflow;
+import uk.co.farowl.vsj4.internal.Formats.FormatSpec;
+import uk.co.farowl.vsj4.internal.Formats.FormatUnknown;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
-import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
@@ -173,15 +179,15 @@ public class PyFloat implements WithClass {
     // Special methods -----------------------------------------------
 
     // TODO: implement __format__ and (revised) stringlib
-    // @SuppressWarnings("unused")
-    // private static String __repr__(Object self) {
-    // assert TYPE.check(self);
-    // return formatDouble(doubleValue(self), SPEC_REPR);
-    // }
-    //
-    /// ** Format specification used by repr(). */
-    // private static final Spec SPEC_REPR = InternalFormat.fromText("
-    // >r");
+    @SuppressWarnings("unused")
+    private static String __repr__(Object self) {
+        assert TYPE.check(self);
+        return formatDouble(doubleValue(self), SPEC_REPR);
+    }
+
+    /** Format specification used by repr(). */
+    private static final Formats.FormatSpec SPEC_REPR =
+            Formats.fromText(">r");
 
     /**
      * Ternary special method {@code __pow__}.
@@ -219,161 +225,66 @@ public class PyFloat implements WithClass {
 
     // float methods -------------------------------------------------
 
-    // TODO: implement __format__ and (revised) stringlib
-    // @PythonMethod
-    // static final Object __format__(Object self, Object formatSpec) {
-    //
-    // String stringFormatSpec = PyUnicode.asString(formatSpec,
-    // o -> Abstract.argumentTypeError("__format__",
-    // "specification", "str", o));
-    //
-    // try {
-    // // Parse the specification
-    // Spec spec = InternalFormat.fromText(stringFormatSpec);
-    //
-    // // Get a formatter for the specification
-    // Formatter f = new Formatter(spec);
-    //
-    // /*
-    // * Format, pad and return a result according to as the
-    // * specification argument.
-    // */
-    // return f.format(self).pad().getResult();
-    //
-    // } catch (FormatOverflow fe) {
-    // throw PyErr.format(PyExc.OverflowError, fe.getMessage());
-    // } catch (FormatError fe) {
-    // throw PyErr.format(PyExc.ValueError, fe.getMessage());
-    // } catch (NoConversion e) {
-    // throw Abstract.impossibleArgumentError(TYPE.name, self);
-    // }
-    // }
-    //
-    /// **
-    // * Format this float according to the specification passed in.
-    // * Supports {@code __format__}, {@code __str__} and
-    // * {@code __repr__}.
-    // *
-    // * @param value to format
-    // * @param spec parsed format specification string
-    // * @return formatted value
-    // */
-    // private static String formatDouble(double value, Spec spec) {
-    // try {
-    // FloatFormatter f = new Formatter(spec, true);
-    // return f.format(value).getResult();
-    // } catch (FormatOverflow fe) {
-    // throw PyErr.format(PyExc.OverflowError, fe.getMessage());
-    // } catch (FormatError fe) {
-    // throw PyErr.format(PyExc.ValueError, fe.getMessage());
-    // }
-    // }
+    /**
+     * Format the {@code self} object.
+     *
+     * @param self to format
+     * @param formatSpec specification
+     * @return the formatted string from {@code self}
+     */
+    @PythonMethod
+    static final Object __format__(Object self, Object formatSpec) {
 
-    // formatter ------------------------------------------------------
+        String stringFormatSpec = PyUnicode.asString(formatSpec,
+                o -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", o));
 
-    // TODO: implement __format__ and (revised) stringlib
-    /// **
-    // * A {@link Formatter}, constructed from a {@link Spec}, with
-    // * specific validations for {@code int.__format__}.
-    // */
-    // static class Formatter extends FloatFormatter {
-    //
-    // /**
-    // * If {@code true}, give {@code printf}-style meanings to
-    // * {@link Spec#type}.
-    // */
-    // final boolean printf;
-    //
-    // /**
-    // * Prepare a {@link Formatter} in support of
-    // * {@code str.__mod__}, that is, traditional
-    // * {@code printf}-style formatting.
-    // *
-    // * @param spec a parsed format specification.
-    // * @param printf f {@code true}, interpret {@code spec}
-    // * {@code printf}-style, otherwise as
-    // * {@link Formatter#Formatter(Spec) Formatter(Spec)}
-    // * @throws FormatOverflow if a value is out of range (including
-    // * the precision)
-    // * @throws FormatError if an unsupported format character is
-    // * encountered
-    // */
-    // Formatter(Spec spec, boolean printf) throws FormatError {
-    // super(validated(spec, printf));
-    // this.printf = printf;
-    // }
-    //
-    // /**
-    // * Prepare a {@link Formatter} in support of
-    // * {@link PyFloat#__format__(Object, Object) float.__format__}.
-    // *
-    // * @param spec a parsed PEP-3101 format specification.
-    // * @throws FormatOverflow if a value is out of range (including
-    // * the precision)
-    // * @throws FormatError if an unsupported format character is
-    // * encountered
-    // */
-    // Formatter(Spec spec) throws FormatError {
-    // this(spec, false);
-    // }
-    //
-    // /**
-    // * Validations and defaults specific to {@code float}.
-    // *
-    // * @param spec to validate
-    // * @return validated spec with defaults filled
-    // * @throws FormatError on failure to validate
-    // */
-    // private static Spec validated(Spec spec, boolean printf)
-    // throws FormatError {
-    // String type = TYPE.name;
-    //
-    // switch (spec.type) {
-    //
-    // case 'n':
-    // if (spec.grouping) {
-    // throw notAllowed("Grouping", type, spec.type);
-    // }
-    // //$FALL-THROUGH$
-    //
-    // case Spec.NONE:
-    // case 'e':
-    // case 'f':
-    // case 'g':
-    // case 'E':
-    // case 'F':
-    // case 'G':
-    // case '%':
-    // // Check for disallowed parts of the specification
-    // if (spec.alternate) {
-    // throw alternateFormNotAllowed(type);
-    // }
-    // break;
-    //
-    // case 'r':
-    // case 's':
-    // // Only allow for printf-style formatting
-    // if (printf) { break; }
-    // //$FALL-THROUGH$
-    //
-    // default:
-    // // The type code was not recognised
-    // throw unknownFormat(spec.type, type);
-    // }
-    //
-    // /*
-    // * spec may be incomplete. The defaults are those commonly
-    // * used for numeric formats.
-    // */
-    // return spec.withDefaults(Spec.NUMERIC);
-    // }
-    //
-    // @Override
-    // public FloatFormatter format(Object o)
-    // throws NoConversion, FormatError {
-    // return format(convertToDouble(o));
-    // }
-    // }
+        try {
+            // Parse the specification
+            FormatSpec spec = Formats.fromText(stringFormatSpec);
+
+            // Get a formatter for the specification
+            Formatter f = new Formatter(spec);
+
+            /*
+             * Format, pad and return a result according to as the
+             * specification argument.
+             */
+            return f.format(self).pad().getResult();
+
+        } catch (FormatOverflow fe) {
+            throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+        } catch (FormatUnknown fe) {
+            throw PyErr.format(PyExc.ValueError,
+                    "%s for object of type '%s'", fe.getMessage(),
+                    PyType.of(self).getName());
+        } catch (FormatError fe) {
+            throw PyErr.format(PyExc.ValueError, fe.getMessage());
+        } catch (NoConversion e) {
+            throw Abstract.impossibleArgumentError("float", self);
+        }
+    }
+
+    /**
+     * Format this float according to the specification passed in.
+     * Supports {@code __format__}, {@code __str__} and
+     * {@code __repr__}.
+     *
+     * @param value to format
+     * @param spec parsed format specification string
+     * @return formatted value
+     */
+    private static String formatDouble(double value,
+            Formats.FormatSpec spec) {
+        try {
+            FloatFormatter f = new Formatter(spec, true);
+            return f.format(value).getResult();
+        } catch (FormatOverflow fe) {
+            throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+        } catch (FormatError fe) {
+            throw PyErr.format(PyExc.ValueError, fe.getMessage());
+        }
+    }
 
     // Plumbing ------------------------------------------------------
 
@@ -663,17 +574,108 @@ public class PyFloat implements WithClass {
         return PyTuple.of(floordiv(x, y), mod(x, y));
     }
 
+    // formatter ------------------------------------------------------
+
     /**
-     * We received an argument that should be impossible in a correct
-     * interpreter. We use this when conversion of an
-     * {@code Object self} argument may theoretically fail, but we know
-     * that we should only reach that point by paths that guarantee
-     * {@code self`} to be some kind on {@code float}.
-     *
-     * @param o actual argument
-     * @return exception to throw
+     * A {@link Formatter}, constructed from a {@link FormatSpec}, with
+     * specific validations for {@code int.__format__}.
      */
-    private static InterpreterError impossible(Object o) {
-        return Abstract.impossibleArgumentError("float", o);
+    static class Formatter extends FloatFormatter {
+
+        /**
+         * If {@code true}, give old-style %-formatting meanings to
+         * {@link FormatSpec#type}.
+         */
+        final boolean oldfmt;
+
+        /**
+         * Prepare a {@link Formatter} in support of
+         * {@code str.__mod__}, that is, old-style %-formatting.
+         *
+         * @param spec a parsed format specification.
+         * @param oldfmt f {@code true}, interpret {@code spec}
+         *     old-style %-formatting, otherwise as
+         *     {@link Formatter#Formatter(FormatSpec)
+         *     Formatter(FormatSpec)}
+         * @throws FormatOverflow if a value is out of range (including
+         *     the precision)
+         * @throws FormatError if an unsupported format character is
+         *     encountered
+         */
+        Formatter(FormatSpec spec, boolean oldfmt) throws FormatError {
+            super(validated(spec, oldfmt));
+            this.oldfmt = oldfmt;
+        }
+
+        /**
+         * Prepare a {@link Formatter} in support of
+         * {@link PyFloat#__format__(Object, Object) float.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @throws FormatError if an unsupported format is encountered
+         */
+        Formatter(FormatSpec spec) throws FormatError {
+            this(spec, false);
+        }
+
+        /**
+         * Validations and defaults specific to
+         * {@code float.__format__}. (Note that %-formatting has
+         * slightly different rules.)
+         *
+         * @param spec to validate
+         * @return validated spec with defaults filled
+         * @throws FormatError on failure to validate
+         */
+        private static FormatSpec validated(FormatSpec spec,
+                boolean oldfmt) throws FormatError {
+
+            switch (spec.type) {
+
+                case 'n':
+                    if (spec.group > 0) {
+                        throw notAllowed("Grouping", spec.grouper,
+                                TYPE.getName(), spec.type);
+                    }
+                    //$FALL-THROUGH$
+
+                case FormatSpec.NONE:
+                case 'e':
+                case 'f':
+                case 'g':
+                case 'E':
+                case 'F':
+                case 'G':
+                case '%':
+                    // TODO Alternate forms allowed in Python 3
+                    // Check for disallowed parts of the specification
+                    if (spec.alternate) {
+                        throw alternateFormNotAllowed(TYPE.getName());
+                    }
+                    break;
+
+                case 'r':
+                case 's':
+                    // Only allow for old-style %-formatting
+                    if (oldfmt) { break; }
+                    //$FALL-THROUGH$
+
+                default:
+                    // The type code was not recognised
+                    throw new FormatUnknown(spec.type);
+            }
+
+            /*
+             * spec may be incomplete. The defaults are those commonly
+             * used for numeric formats.
+             */
+            return spec.withDefaults(FormatSpec.NUMERIC);
+        }
+
+        @Override
+        public FloatFormatter format(Object o)
+                throws NoConversion, FormatError {
+            return format(convertToDouble(o));
+        }
     }
 }
