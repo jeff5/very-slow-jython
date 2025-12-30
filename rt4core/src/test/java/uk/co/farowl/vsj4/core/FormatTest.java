@@ -10,7 +10,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.math.BigInteger;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -804,25 +803,172 @@ class FormatTest extends UnitTestSupport {
         }
     }
 
-    /**
-     * Test formatting a str
-     */
-    @Disabled("str.__format__ not yet implemented")
-    @Test
-    @DisplayName("rudimentary str.__format__ test")
-    @SuppressWarnings("static-method")
-    void strFormat() {
-        String v = "abc";
-        PyUnicode e = newPyUnicode(v);
-        Object r = PyUnicode.__format__(v, "");
-        assertEquals(e, r);
+    /** Base of tests that format strings. */
+    abstract static class AbstractStringFormatTest {
 
-        String v2 = "abcdef";
-        r = PyUnicode.__format__(v2, ".3");
-        assertEquals(e, r);
+        /**
+         * The values corresponding to the expected results in the
+         * stream of examples provided by {@link #stringExamples()}. In
+         * the Python script for generating test data, this array
+         * is:<pre>
+         * sval = ["", "Test", "café", "λόγος",
+         *         "画蛇添足", "A 🐍 and a 🦓"]
+         * </pre>
+         */
+        static final Object[] VALUES =
+                {"", "Test", "café", "λόγος", "画蛇添足", "A 🐍 and a 🦓"};
 
-        r = PyUnicode.__format__(v2, "6");
-        PyUnicode e2 = newPyUnicode("abc ");
-        assertEquals(e2, r);
+        /**
+         * Provide a stream of examples as parameter sets to the tests.
+         * In each example, one format has been used to format all the
+         * {@link #VALUES}. In the Python script for generating test
+         * data, the fragment that generates the test argument sets
+         * is:<pre>
+         * sfmt = ["", "s", "5s", "<5s", "^5s", ">5s", "4.3s",
+         *         "20s", "<20s", "^20s", ">20s", "20.3s",
+         *         "20", "<20", "^20", ">20"]
+         *
+         * for f in sfmt:
+         *     print(gen_example('strExample', sval, f))
+         * print(");")
+         * </pre>
+         *
+         * @return the examples for string formatting tests.
+         */
+        static Stream<Arguments> strExamples() {
+            return Stream.of( //
+                    strExample("", "", "Test", "café", "λόγος", "画蛇添足",
+                            "A 🐍 and a 🦓"), //
+                    strExample("s", "", "Test", "café", "λόγος", "画蛇添足",
+                            "A 🐍 and a 🦓"), //
+                    strExample("5s", "     ", "Test ", "café ", "λόγος",
+                            "画蛇添足 ", "A 🐍 and a 🦓"), //
+                    strExample("<5s", "     ", "Test ", "café ",
+                            "λόγος", "画蛇添足 ", "A 🐍 and a 🦓"), //
+                    strExample("^5s", "     ", "Test ", "café ",
+                            "λόγος", "画蛇添足 ", "A 🐍 and a 🦓"), //
+                    strExample(">5s", "     ", " Test", " café",
+                            "λόγος", " 画蛇添足", "A 🐍 and a 🦓"), //
+                    strExample("4.3s", "    ", "Tes ", "caf ", "λόγ ",
+                            "画蛇添 ", "A 🐍 "), //
+                    strExample("20s", "                    ",
+                            "Test                ",
+                            "café                ",
+                            "λόγος               ",
+                            "画蛇添足                ",
+                            "A 🐍 and a 🦓         "), //
+                    strExample("<20s", "                    ",
+                            "Test                ",
+                            "café                ",
+                            "λόγος               ",
+                            "画蛇添足                ",
+                            "A 🐍 and a 🦓         "), //
+                    strExample("^20s", "                    ",
+                            "        Test        ",
+                            "        café        ",
+                            "       λόγος        ",
+                            "        画蛇添足        ",
+                            "    A 🐍 and a 🦓     "), //
+                    strExample(">20s", "                    ",
+                            "                Test",
+                            "                café",
+                            "               λόγος",
+                            "                画蛇添足",
+                            "         A 🐍 and a 🦓"), //
+                    strExample("20.3s", "                    ",
+                            "Tes                 ",
+                            "caf                 ",
+                            "λόγ                 ",
+                            "画蛇添                 ",
+                            "A 🐍                 "), //
+                    strExample("20", "                    ",
+                            "Test                ",
+                            "café                ",
+                            "λόγος               ",
+                            "画蛇添足                ",
+                            "A 🐍 and a 🦓         "), //
+                    strExample("<20", "                    ",
+                            "Test                ",
+                            "café                ",
+                            "λόγος               ",
+                            "画蛇添足                ",
+                            "A 🐍 and a 🦓         "), //
+                    strExample("^20", "                    ",
+                            "        Test        ",
+                            "        café        ",
+                            "       λόγος        ",
+                            "        画蛇添足        ",
+                            "    A 🐍 and a 🦓     "), //
+                    strExample(">20", "                    ",
+                            "                Test",
+                            "                café",
+                            "               λόγος",
+                            "                画蛇添足",
+                            "         A 🐍 and a 🦓") //
+            );
+        }
+
+        /**
+         * Construct a set of test arguments for a single format type
+         * and a reference result for each value in {@link #VALUES},
+         * provided by the caller. We convert reference results to
+         * {@code PyUnicode} to ensure we get Python comparison
+         * semantics.
+         *
+         * @param format to apply
+         * @param expected results to expect
+         * @return example data for a test
+         */
+        private static Arguments strExample(String format,
+                String... expected) {
+            return strExample(format, VALUES, expected);
+        }
+
+        /**
+         * Construct a set of test arguments for a single format type
+         * and a reference result for each value in {@code values},
+         * provided by the caller. We convert reference results to
+         * {@code PyUnicode} to ensure we get Python comparison
+         * semantics.
+         *
+         * @param format to apply
+         * @param values to apply {@code format} to
+         * @param expected results to expect
+         * @return example data for a test
+         */
+        private static Arguments strExample(String format,
+                Object[] values, String... expected) {
+            assert expected.length == values.length;
+            PyUnicode[] uExpected = new PyUnicode[expected.length];
+            for (int i = 0; i < expected.length; i++) {
+                uExpected[i] = newPyUnicode(expected[i]);
+            }
+            return arguments(format, values, uExpected);
+        }
+    }
+
+    @Nested
+    @DisplayName("str.__format__")
+    class StringFormatTest extends AbstractStringFormatTest {
+
+        @DisplayName("str.__format__(float, String)")
+        @ParameterizedTest(name = "str.__format__(x, \"{0}\")")
+        @MethodSource("strExamples")
+        void strFormat(String format, Object[] values,
+                PyUnicode[] expected) {
+            for (int i = 0; i < values.length; i++) {
+                Object r = PyUnicode.__format__(values[i], format);
+                assertEquals(expected[i], r);
+            }
+        }
+
+        @DisplayName("str.__format__: unknown specifier")
+        @ParameterizedTest(name = "int.__format__(x, \"{0}\")")
+        @ValueSource(strings = {"r", "10.5r"})
+        void intFormatUnknown(String format) {
+            assertRaises(PyExc.ValueError,
+                    () -> PyUnicode.__format__("x", format),
+                    "Unknown format code 'r' for object of type 'str'");
+        }
     }
 }

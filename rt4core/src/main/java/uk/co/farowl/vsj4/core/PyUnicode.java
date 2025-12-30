@@ -23,10 +23,16 @@ import java.util.stream.StreamSupport;
 import uk.co.farowl.vsj4.core.PySequence.Delegate;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.internal.InternalFormat;
+import uk.co.farowl.vsj4.internal.InternalFormat.AbstractFormatter;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatError;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.internal.InternalFormat.FormatUnknown;
+import uk.co.farowl.vsj4.internal.TextFormatter;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Name;
@@ -2955,42 +2961,37 @@ public class PyUnicode implements WithClass, PyDict.Key {
      */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
-        throw new MissingFeature("str.__format__");
-    }
 
-    /// **
-    // * Python {@code str.__format__}.
-    // *
-    // * @return {@code str.__format__(self)}
-    // */
-    // @PythonMethod
-    // static Object __format__(Object self, Object formatSpec) {
-    //
-    // String stringFormatSpec = asString(formatSpec,
-    // o -> Abstract.argumentTypeError("__format__",
-    // "specification", "str", o));
-    //
-    // try {
-    // // Parse the specification
-    // Spec spec = InternalFormat.fromText(stringFormatSpec);
-    //
-    // // Get a formatter for the specification
-    // TextFormatter f = new StrFormatter(spec);
-    //
-    // /*
-    // * Format, pad and return a result according to as the
-    // * specification argument.
-    // */
-    // return f.format(self).pad().getResult();
-    //
-    // } catch (FormatOverflow fe) {
-    // throw PyErr.format(PyExc.OverflowError, fe.getMessage());
-    // } catch (FormatError fe) {
-    // throw PyErr.format(PyExc.ValueError, fe.getMessage());
-    // } catch (NoConversion e) {
-    // throw Abstract.impossibleArgumentError(TYPE.name, self);
-    // }
-    // }
+        String stringFormatSpec = asString(formatSpec,
+                o -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", o));
+
+        try {
+            // Parse the specification
+            FormatSpec spec = InternalFormat.fromText(stringFormatSpec);
+
+            // Get a formatter for the specification
+            TextFormatter f = new StrFormatter(spec);
+
+            /*
+             * Format, pad and return a result according to as the
+             * specification argument.
+             */
+            return f.format(self).pad().getResult();
+
+        } catch (FormatOverflow fe) {
+            throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+        } catch (FormatUnknown fe) {
+            throw PyErr.format(PyExc.ValueError,
+                    "%s for object of type '%s'", fe.getMessage(),
+                    PyType.of(self).getName());
+        } catch (FormatError fe) {
+            throw PyErr.format(PyExc.ValueError, fe.getMessage());
+        } catch (NoConversion e) {
+            throw Abstract.impossibleArgumentError(TYPE.getName(),
+                    self);
+        }
+    }
 
     // Java-only API --------------------------------------------------
 
@@ -4465,64 +4466,71 @@ public class PyUnicode implements WithClass, PyDict.Key {
         }
     }
 
-    // TODO implement __format__ and (revised) stringlib
-    /// **
-    // * A {@link AbstractFormatter}, constructed from a {@link Spec},
-    // * with specific validations for {@code str.__format__}.
-    // */
-    // private static class StrFormatter extends TextFormatter {
-    //
-    // /**
-    // * Prepare a {@link TextFormatter} in support of
-    // * {@link PyUnicode#__format__(Object, Object) str.__format__}.
-    // *
-    // * @param spec a parsed PEP-3101 format specification.
-    // * @return a formatter ready to use.
-    // * @throws FormatOverflow if a value is out of range (including
-    // * the precision)
-    // * @throws PyBaseException ({@link PyExc#FormatError FormatError})
-    // if an unsupported format
-    // character is
-    // * encountered
-    // */
-    // StrFormatter(Spec spec) throws PyBaseException {
-    // super(validated(spec));
-    // }
-    //
-    // @Override
-    // public TextFormatter format(Object self) throws NoConversion {
-    // return format(convertToString(self));
-    // }
-    //
-    // private static Spec validated(Spec spec) throws PyBaseException {
-    // String type = TYPE.name;
-    // switch (spec.type) {
-    //
-    // case Spec.NONE:
-    // case 's':
-    // // Check for disallowed parts of the specification
-    // if (spec.grouping) {
-    // throw notAllowed("Grouping", type, spec.type);
-    // } else if (Spec.specified(spec.sign)) {
-    // throw signNotAllowed(type, '\0');
-    // } else if (spec.alternate) {
-    // throw alternateFormNotAllowed(type);
-    // } else if (spec.align == '=') {
-    // throw alignmentNotAllowed('=', type);
-    // }
-    // // Passed (whew!)
-    // break;
-    //
-    // default:
-    // // The type code was not recognised
-    // throw unknownFormat(spec.type, type);
-    // }
-    //
-    // /*
-    // * spec may be incomplete. The defaults are those commonly
-    // * used for string formats.
-    // */
-    // return spec.withDefaults(Spec.STRING);
-    // }
-    // }
+    // formatter ------------------------------------------------------
+
+    /**
+     * A {@link AbstractFormatter}, constructed from a
+     * {@link FormatSpec}, with specific validations for
+     * {@code str.__format__}.
+     */
+    private static class StrFormatter extends TextFormatter {
+
+        /**
+         * Prepare a {@link TextFormatter} in support of
+         * {@link PyUnicode#__format__(Object, Object) str.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @return a formatter ready to use.
+         * @throws FormatError if an unsupported format is encountered
+         */
+        StrFormatter(FormatSpec spec) throws FormatError {
+            super(validated(spec));
+        }
+
+        @Override
+        public TextFormatter format(Object self) throws NoConversion {
+            return format(convertToString(self));
+        }
+
+        /**
+         * Validations and defaults specific to {@code str.__format__}.
+         * (Note that %-formatting with {@code str.__mod__} has slightly
+         * different rules.)
+         *
+         * @param spec to validate
+         * @return validated spec with defaults filled
+         * @throws FormatError on failure to validate
+         */
+        private static FormatSpec validated(FormatSpec spec)
+                throws FormatError {
+            switch (spec.type) {
+
+                case FormatSpec.NONE:
+                case 's':
+                    // Check for disallowed parts of the specification
+                    if (spec.group > 0) {
+                        throw notAllowed("Grouping", "string",
+                                spec.type);
+                    } else if (FormatSpec.specified(spec.sign)) {
+                        throw signNotAllowed("string", '\0');
+                    } else if (spec.alternate) {
+                        throw alternateFormNotAllowed("string");
+                    } else if (spec.align == '=') {
+                        throw notAllowed("'=' alignment", "string");
+                    }
+                    // Passed (whew!)
+                    break;
+
+                default:
+                    // The type code was not recognised
+                    throw new FormatUnknown(spec.type);
+            }
+
+            /*
+             * spec may be incomplete. The defaults are those commonly
+             * used for string formats.
+             */
+            return spec.withDefaults(FormatSpec.STRING);
+        }
+    }
 }

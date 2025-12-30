@@ -263,11 +263,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
          * {@link PyLong#__format__(Object, Object) int.__format__}.
          *
          * @param spec a parsed PEP-3101 format specification.
-         * @return a formatter ready to use.
-         * @throws FormatOverflow if a value is out of range (including
-         *     the precision)
-         * @throws FormatError if an unsupported format character is
-         *     encountered
+         * @throws FormatError if an unsupported format is encountered
          */
         Formatter(FormatSpec spec) throws FormatError {
             super(validated(spec));
@@ -275,7 +271,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
         /**
          * Validations and defaults specific to {@code int.__format__}.
-         * (Note that {@code int.__mod__} has slightly different rules.)
+         * (Note that %-formatting has slightly different rules.)
          *
          * @param spec to validate
          * @return validated spec with defaults filled

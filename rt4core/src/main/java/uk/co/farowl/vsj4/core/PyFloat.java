@@ -326,17 +326,16 @@ public class PyFloat implements WithClass {
          * {@link PyFloat#__format__(Object, Object) float.__format__}.
          *
          * @param spec a parsed PEP-3101 format specification.
-         * @throws FormatOverflow if a value is out of range (including
-         *     the precision)
-         * @throws FormatError if an unsupported format character is
-         *     encountered
+         * @throws FormatError if an unsupported format is encountered
          */
         Formatter(FormatSpec spec) throws FormatError {
             this(spec, false);
         }
 
         /**
-         * Validations and defaults specific to {@code float}.
+         * Validations and defaults specific to
+         * {@code float.__format__}. (Note that %-formatting has
+         * slightly different rules.)
          *
          * @param spec to validate
          * @return validated spec with defaults filled
