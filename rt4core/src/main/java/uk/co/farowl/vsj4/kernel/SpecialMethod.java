@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -34,7 +34,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * from the Python Data Model and provides behaviour supporting their
  * use by run time system. These are methods that have a particular
  * meaning to the compiler for the implementation of primitive
- * representation (like negation, addition, and method call). When
+ * operations (like negation, addition, and method call). When
  * interpreting Python byte code, they figure in the implementation of
  * the byte codes for primitive operations (UNARY_NEGATIVE, BINARY_OP,
  * CALL), usually via the "abstract object API". When generating JVM
@@ -43,23 +43,27 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * may vary from one version of Python to another. They are not
  * considered public API.
  * <p>
- * Each {@code SpecialMethod} member, given a {@code Representation}
+ * Each {@code SpecialMethod} member, given a {@link Representation}
  * object, is able to produce a method handle that can be used to invoke
  * the corresponding method on a Python object with that Java
- * representation. In the case of a shared representation, the handle
- * will reference the actual type written on the object.
+ * representation. Special methods may be implemented by any class,
+ * whether defined in Java or in Python and are recognised by name in
+ * the type system, when constructing the {@link PyType} that describes
+ * the class.
  * <p>
- * Special methods may be implemented by any class, whether defined in
- * Java or in Python. They will appear first in the dictionary of the
- * {@link PyType} that describes the class as ordinary methods. A
- * {@code SpecialMethod} member, when asked for an invocation
- * {@code MethodHandle}, <i>may</i> produce a handle that looks up its
- * method in the dictionary of the type of the object, or it <i>may</i>
- * produce a handle cached on the {@code Representation}. The choice of
- * behaviour depends on the member. In the case of a shared
- * representation, it must produce a handle that will reference the
- * actual type of the object, before it continues into one of these two
- * behaviours.
+ * A {@code SpecialMethod} member, when asked for an invocation
+ * {@code MethodHandle} through
+ * {@link SpecialMethod#handle(Representation)}, will produce a handle
+ * that leads to an implementation of that special method. Each
+ * {@link Representation} contains a method, with the same name as the
+ * {@code SpecialMethod}, that produces the same handle. This <i>may</i>
+ * be a handle that looks up its method in the dictionary of the type of
+ * the object, or it <i>may</i> produce a handle cached on the
+ * {@code Representation}. The choice of behaviour depends on the
+ * member. In the case of a shared representation, it must produce a
+ * handle that will reference the actual type of the object, before it
+ * continues into one of these two behaviours, while for many basic
+ * types the handle is direct.
  */
 // Compare CPython wrapperbase in descrobject.h
 // aka slotdef in typeobject.c
@@ -510,15 +514,19 @@ public enum SpecialMethod {
 
     /** Method signature to match when defining the special method. */
     public final Signature signature;
+
     /** Name of implementation method to bind e.g. {@code "__add__"}. */
     public final String methodName;
+
     /** Name to use in error messages, e.g. {@code "+"} */
     final String opName;
+
     /**
-     * The {@code null}, except in a reversed op, where it designates
-     * the forward op e.g. in {@code op_radd} it is {@code op_add}.
+     * Indicates the reflected form of an operation, e.g. in
+     * {@code op_add} it is {@code op_radd}. It is {@code null}
+     * elsewhere (even the reflected operation).
      */
-    final SpecialMethod alt;
+    public final SpecialMethod reflected;
 
     /**
      * Reference to the field used to cache a handle to this method in a
@@ -555,17 +563,21 @@ public enum SpecialMethod {
      *     implementation taken from the (index zero) representation of
      *     that ancestor. Any clique member that receives a divergent
      *     definition of the special method has to set the cache in the
-     *     shared representation to this default.
+     *     shared representation to this default. However, this is only
+     *     a possibility if a call site (etc.) does not take a copy.
      */
     // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
     public final MethodHandle generic;
 
+    /**
+     * Throws a {@link PyBaseException TypeError} when invoked (and has
+     * the same signature as the special method itself).
+     */
+    MethodHandle error;
+
     /** Description to use in help messages */
     public final String doc;
-
-    /** Throws a {@link PyBaseException TypeError} (same signature) */
-    private MethodHandle operandError;
 
     /**
      * Constructor for enum constants.
@@ -574,19 +586,18 @@ public enum SpecialMethod {
      * @param doc basis of documentation string, allows {@code null},
      *     just a symbol like "+", up to full docstring.
      * @param methodName implementation method (e.g. "__add__")
-     * @param alt alternate special method (e.g. "op_radd")
+     * @param alt reflected special method (e.g. "op_radd")
      */
     SpecialMethod(Signature signature, String doc, String methodName,
             SpecialMethod alt) {
         this.signature = signature;
         this.methodName = dunder(methodName);
-        this.alt = alt;
+        this.reflected = alt;
         // If doc is short, assume it's a symbol. Fall back on name.
         this.opName = (doc != null && doc.length() <= 3) ? doc : name();
         // Make up the docstring from whatever shorthand we got.
         this.doc = docstring(doc);
         this.cache = SMUtil.cacheVH(this);
-        // FIXME Slot functions not correctly generated.
         this.generic = SMUtil.slotMH(this);
     }
 
@@ -619,7 +630,7 @@ public enum SpecialMethod {
      * @return this operation in {@code rep}
      */
     public MethodHandle handle(Representation rep) {
-        // FIXME: Consider thread safety of slots
+        // FIXME: Consider thread safety of cache
         if (cache != null) {
             // The handle is cached on the Representation
             return (MethodHandle)cache.get(rep);
@@ -630,25 +641,25 @@ public enum SpecialMethod {
 
     /**
      * Get the {@code MethodHandle} on the implementation of the
-     * "alternate" {@code SpecialMethod}'s operation from the given
+     * "reflected" {@code SpecialMethod}'s operation from the given
      * representation object. For a binary operation this is the
      * reflected operation. This will either be directly from the cache
      * on the representation, or a {@link #generic} handle that calls
      * {@link #methodName} by look-up on the Python type when invoked.
      *
      * @param rep target representation object
-     * @return the alternate of this operation in {@code rep}
-     * @throws NullPointerException if there is no alternate
+     * @return the reflection of this operation in {@code rep}
+     * @throws NullPointerException if there is no reflection
      */
-    public MethodHandle getAltSlot(Representation rep)
+    public MethodHandle reflected(Representation rep)
             throws NullPointerException {
-        // FIXME: Consider thread safety of slots
-        VarHandle cache = alt.cache;
+        // FIXME: Consider thread safety of cache
+        VarHandle cache = reflected.cache;
         if (cache != null) {
             // The handle is cached on the Representation
             return (MethodHandle)cache.get(rep);
         } else {
-            return alt.generic;
+            return reflected.generic;
         }
     }
 
@@ -927,13 +938,13 @@ public enum SpecialMethod {
      *
      * @return throwing method handle for this type of slot
      */
-    MethodHandle getOperandError() {
+    public MethodHandle errorHandle() {
         // Not in the constructor so as not to provoke PyType
-        if (operandError == null) {
+        if (error == null) {
             // Possibly racing, but that's harmless
-            operandError = SMUtil.operandErrorMH(this);
+            error = SMUtil.operandErrorMH(this);
         }
-        return operandError;
+        return error;
     }
 
     /**
@@ -1164,7 +1175,8 @@ public enum SpecialMethod {
         INIT(V, O, OA, SA);
 
         /**
-         * The signature was defined with this nominal method type.
+         * Every SpecialMethod that claims this signature must provide a
+         * handle with this method type.
          */
         public final MethodType type;
         /**
@@ -1338,6 +1350,7 @@ public enum SpecialMethod {
          * @param sm to lookup via the type of {@code self}
          * @return a handle that looks up and calls {@code sm}
          */
+        // FIXME Are slot functions all correctly generated?
         static MethodHandle slotMH(SpecialMethod sm) {
 
             /*
@@ -1387,8 +1400,9 @@ public enum SpecialMethod {
 
         /**
          * Helper for {@link SpecialMethod} and thereby for call sites
-         * providing a method handle that throws a Python exception when
-         * invoked, with an appropriate message for the operation.
+         * providing a method handle that raises a Python exception when
+         * invoked with the arguments of the special method, having an
+         * appropriate message for the operation.
          * <p>
          * To be concrete, if the special method is a binary operation,
          * the returned handle may throw something like:<pre>
@@ -1401,9 +1415,10 @@ public enum SpecialMethod {
         static MethodHandle operandErrorMH(SpecialMethod sm) {
             // The type of the method that creates the TypeError
             MethodType errorMT = sm.getType()
-                    .insertParameterTypes(0, SpecialMethod.class)
+                    // .insertParameterTypes(0, SpecialMethod.class)
+                    // Java class of Python TypeError is:
                     .changeReturnType(PyBaseException.class);
-            // Exception thrower with nominal return type of the slot
+            // Exception thrower with nominal return type
             // thrower = λ(e): throw e
             MethodHandle thrower = MethodHandles.throwException(
                     sm.getType().returnType(), PyBaseException.class);
@@ -1415,26 +1430,12 @@ public enum SpecialMethod {
                  * slot signature) prepended with this slot. We'll only
                  * call it if the handle is invoked.
                  */
-                // error = λ(slot, v, w, ...): f(slot, v, w, ...)
-                MethodHandle error;
-                switch (sm.signature) {
-                    case UNARY:
-                        // Same name, although signature differs ...
-                    case BINARY:
-                        error = LOOKUP.findVirtual(SpecialMethod.class,
-                                "operandError", errorMT);
-                        break;
-                    default:
-                        // error = λ(slot): default(slot, v, w, ...)
-                        error = LOOKUP.findStatic(SMUtil.class,
-                                "defaultOperandError", errorMT);
-                        // error = λ(slot, v, w, ...): default(slot)
-                        error = MethodHandles.dropArguments(error, 0,
-                                sm.getType().parameterArray());
-                }
+                // error = λ(sm, v, w, ...): sm.operandError(v, w, ...)
+                MethodHandle error = LOOKUP.findVirtual(
+                        SpecialMethod.class, "operandError", errorMT);
 
                 // A handle that creates and throws the exception
-                // λ(v, w, ...): throw f(slot, v, w, ...)
+                // λ(v, w, ...): throw f(sm, v, w, ...)
                 return MethodHandles.collectArguments(thrower, 0,
                         error.bindTo(sm));
 
@@ -1442,19 +1443,6 @@ public enum SpecialMethod {
                 throw new InterpreterError(e,
                         "creating TypeError handle for %s", sm.name());
             }
-        }
-
-        /**
-         * Uninformative exception, mentioning the special method.
-         *
-         * @param sm special method receiving a bad operand
-         * @return an exception to throw
-         */
-        @SuppressWarnings("unused")  // reflected in operandError
-        private static PyBaseException
-                defaultOperandError(SpecialMethod sm) {
-            return PyErr.format(PyExc.TypeError,
-                    "bad operand type for %s", sm.opName);
         }
     }
 
@@ -1506,7 +1494,7 @@ public enum SpecialMethod {
                             && !"<= == != >=".contains(doc)) {
                         // In-place binary operation.
                         help = "Return self " + doc + " value.";
-                    } else if (alt == null) {
+                    } else if (reflected == null) {
                         // Binary L op R.
                         help = "Return self " + doc + " value.";
                     } else {
@@ -1594,6 +1582,20 @@ public enum SpecialMethod {
             MethodHandle mh) {
         String fmt = "%s not of required type %s for slot %s";
         return new InterpreterError(fmt, mh, sm.getType(), sm);
+    }
+
+    /**
+     * Create a {@link PyBaseException TypeError} for the named unary
+     * operation, along the lines "bad operand type for OP". This is the
+     * default message from the handle returned by
+     * {@link #errorHandle()}. Generally, we try to be more specific and
+     * include argument types.
+     *
+     * @return an exception to throw
+     */
+    PyBaseException operandError() {
+        return PyErr.format(PyExc.TypeError,
+                "bad operand type for %.200s", opName);
     }
 
     /**

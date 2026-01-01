@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -144,19 +144,19 @@ public class PyNumber extends Abstract {
      *
      * @param v left operand
      * @param w right operand
-     * @param binop operation to apply
+     * @param op operation to apply
      * @return result of operation
      * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
      *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
     private static Object binary_op(Object v, Object w,
-            SpecialMethod binop) throws PyBaseException, Throwable {
+            SpecialMethod op) throws PyBaseException, Throwable {
         try {
-            Object r = binary_op1(v, w, binop);
+            Object r = binary_op1(v, w, op);
             if (r != Py.NotImplemented) { return r; }
         } catch (EmptyException e) {}
-        throw binop.operandError(v, w);
+        throw op.operandError(v, w);
     }
 
     /**
@@ -167,51 +167,53 @@ public class PyNumber extends Abstract {
      *
      * @param v left operand
      * @param w right operand
-     * @param binop operation to apply
+     * @param op operation to apply
      * @return result or {@code Py.NotImplemented}
      * @throws EmptyException when an empty slot is invoked
      * @throws Throwable from the implementation of the operation
      */
     private static Object binary_op1(Object v, Object w,
-            SpecialMethod binop) throws EmptyException, Throwable {
+            SpecialMethod op) throws EmptyException, Throwable {
 
-        Representation vOps = representation(v);
-        PyType vType = vOps.pythonType(v);
+        Representation vRep = representation(v);
+        PyType vType = vRep.pythonType(v);
+        MethodHandle vMH;   // e.g. type(v).__sub__
 
-        Representation wOps = representation(w);
-        PyType wType = wOps.pythonType(w);
-
-        MethodHandle slotv, slotw;
+        Representation wRep = representation(w);
+        PyType wType = wRep.pythonType(w);
+        MethodHandle wRA;   // e.g. type(w).__rsub__
 
         /*
-         * CPython would also test: (slotw = rbinop.handle(wtype)) ==
-         * slotv as an optimisation , but that's never the case since we
-         * use distinct binop and rbinop slots.
+         * CPython would also test: vMH == wRA as an optimisation, but
+         * that's never the case since we always use distinct __op__ and
+         * __rop__ methods. (Well, hardly ever: __eq__?)
          */
         if (wType == vType) {
-            // Same types so only try the binop slot
-            slotv = binop.handle(vOps);
-            return slotv.invokeExact(v, w);
+            // Same types so only one type to ask.
+            vMH = op.handle(vRep);
+            return vMH.invokeExact(v, w);
 
         } else if (!wType.isSubTypeOf(vType)) {
-            // Ask left (if not empty) then right.
-            slotv = binop.handle(vOps);
+            // Ask left type then right.
+            vMH = op.handle(vRep);
             try {
-                Object r = slotv.invokeExact(v, w);
+                Object r = vMH.invokeExact(v, w);
                 if (r != Py.NotImplemented) { return r; }
             } catch (EmptyException e) {}
-            slotw = binop.getAltSlot(wOps);
-            return slotw.invokeExact(w, v);
+            // Left does not define binop. Try right reflected.
+            wRA = op.reflected(wRep);
+            return wRA.invokeExact(w, v);
 
         } else {
-            // Right is sub-class: ask first (if not empty).
-            slotw = binop.getAltSlot(wOps);
+            // Right is sub-type of left: ask first.
+            wRA = op.reflected(wRep);
             try {
-                Object r = slotw.invokeExact(w, v);
+                Object r = wRA.invokeExact(w, v);
                 if (r != Py.NotImplemented) { return r; }
             } catch (EmptyException e) {}
-            slotv = binop.handle(vOps);
-            return slotv.invokeExact(v, w);
+            // Right does not define alt-binop. Try left.
+            vMH = op.handle(vRep);
+            return vMH.invokeExact(v, w);
         }
     }
 

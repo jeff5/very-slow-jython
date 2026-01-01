@@ -1,8 +1,10 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
@@ -30,6 +32,15 @@ public final class AdoptiveType extends BaseType {
 
     /** The Java classes, primary, adopted <i>and</i> accepted. */
     private final List<Class<?>> selfClasses;
+
+    /**
+     * Table of arrays in which to look up handles for binary
+     * class-specific method when these are provided as a supplementary
+     * implementation class. This is an empty map if no such class is
+     * provided in the type specification. See
+     * {@code TypeSpec.binops()}.
+     */
+    private Map<SpecialMethod, BinopGrid> binopTable;
 
     /**
      * Create an {@code AdoptiveType} and its attached
@@ -70,6 +81,9 @@ public final class AdoptiveType extends BaseType {
         // For efficiency, pre-compute these results.
         this.selfClasses = List.of(classes);
         this.reps = List.of(reps);
+
+        // TODO implement binopTable for adoptive types
+        this.binopTable = Collections.emptyMap();
     }
 
     @Override
@@ -101,6 +115,12 @@ public final class AdoptiveType extends BaseType {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());
         return this;
+    }
+
+    @Override
+    public BinopGrid getBinopGrid(SpecialMethod binop) {
+        // Only AdoptiveType implements this
+        return binopTable.get(binop);
     }
 
     @Override
