@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -27,9 +27,9 @@ public class UnitTestSupport {
     /*
      * In a previous iteration we initialised the type system in a
      * controlled way ahead of every test, by a use of PyType at this
-     * point. We have worked to obviate this in the current iteration,
-     * because we do not want to impose the same burden on on user
-     * applications.
+     * point. We have worked to make this unnecessary in the current
+     * iteration, because we do not want to impose the same burden on
+     * user applications.
      */
 
     /**

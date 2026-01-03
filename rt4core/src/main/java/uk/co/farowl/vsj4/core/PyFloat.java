@@ -140,6 +140,9 @@ public class PyFloat implements WithClass {
             throw Abstract.requiredTypeError("a real number", o);
     }
 
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
     // Constructor from Python ----------------------------------------
 
     /**

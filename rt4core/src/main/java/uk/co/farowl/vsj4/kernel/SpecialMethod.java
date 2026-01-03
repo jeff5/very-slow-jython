@@ -795,8 +795,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self);
@@ -804,7 +804,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth);
@@ -833,8 +833,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, w);
@@ -842,7 +842,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, w);
@@ -872,8 +872,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, w, m);
@@ -881,7 +881,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, w, m);
@@ -913,8 +913,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, obj, t);
@@ -922,7 +922,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, obj, t);
@@ -946,6 +946,16 @@ public enum SpecialMethod {
         }
         return error;
     }
+
+    /**
+     * Whether this {@code SpecialMethod} has a corresponding cache in
+     * {@link Representation} objects. If not, the effective
+     * {@code MethodHandle} is always the {@link #generic} one.
+     *
+     * @param rep target {@code Representation}
+     * @param mh handle value to assign
+     */
+    public boolean hasCache() { return cache != null; }
 
     /**
      * Set the cache for this {@code SpecialMethod} in the

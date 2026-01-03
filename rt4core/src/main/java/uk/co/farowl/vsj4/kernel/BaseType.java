@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -1242,7 +1242,7 @@ public abstract sealed class BaseType extends KernelType implements
     private void updateSpecialMethodCache(SpecialMethod sm,
             LookupResult result) {
 
-        if (sm.cache == null) {
+        if (sm.hasCache()) {
             // There is no cache for this special method. Ignore.
             return;
 

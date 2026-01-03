@@ -22,29 +22,28 @@ import uk.co.farowl.vsj4.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
- * Run-time support for JVM-compiled code (including
- * {@code invokedynamic} call sites). In some ways, this is the
- * companion to {@link Abstract}, which supports the interpretation of
- * Python byte code, providing access to special methods on Python
- * objects, through a regular Java API called with self-type
- * {@code Object}. Here, in contrast, we provide access to the same
- * special methods through the {@code invokedynamic} mechanism, for the
- * benefit of Java byte code call sites emitted by the Python compiler.
+ * {@link PyRT} provides run-time support for Python that has been
+ * compiled to Java byte code, primarily for {@code invokedynamic} call
+ * sites. In some ways, this supersedes methods in {@link Abstract} that
+ * support the interpretation of Python byte code. Like those methods,
+ * these call sites often wrap a call on a particular special method.
+ * Call sites in Java code should behave exactly as their counterparts
+ * in {@link Abstract}.
  * <p>
  * The use of {@code invokedynamic} call sites in compiled code offers a
  * greater potential for dynamic optimisation through specialisation to
  * the actual Java classes encountered in a given place. (It does not
- * benefit code like that in {@link Abstract} which receives many
- * different types.)
+ * benefit widely used code that receives calls with many different
+ * object types.)
  * <p>
  * The fact that this specialisation is on Java class rather than Python
  * type has two implications.
  * <ol>
  * <li>Primitive operations on simple types (like {@code int.__neg__})
- * dispatch quickly to their exact target implementation</li>
- * <li>Python types that share an implementation class, largely those
- * defined in Python, dispatch through a lookup on their particular type
- * object.</li>
+ * dispatch quickly to their exact target implementation.</li>
+ * <li>Operations on Python types that share an implementation class,
+ * largely those defined in Python, must find their target in a second
+ * step via the Python type of {@code self}.</li>
  * </ol>
  */
 public class PyRT {
@@ -100,6 +99,8 @@ public class PyRT {
             // TODO Maybe use AST node names/enum for call sites?
             case "negative" -> new UnaryOpCallSite(
                     SpecialMethod.op_neg);
+            case "absolute" -> new UnaryOpCallSite(
+                    SpecialMethod.op_abs);
             case "add" -> new BinaryOpCallSite(SpecialMethod.op_add);
             case "multiply" -> new BinaryOpCallSite(
                     SpecialMethod.op_mul);
@@ -112,8 +113,6 @@ public class PyRT {
         return site;
     }
 
-    // enum Validity {CLASS, TYPE, INSTANCE, ONCE}
-
     /**
      * A call site for unary Python operations. The call site is
      * constructed from a slot such as {@link SpecialMethod#op_neg}. It
@@ -122,6 +121,9 @@ public class PyRT {
      * method handles guarded on those classes.
      */
     static class UnaryOpCallSite extends MutableCallSite {
+
+        /** Limit on {@link #chainLength}. */
+        public static final int MAX_CHAIN = 4;
 
         /**
          * Handle to {@link #fallback(Object)}, which is the behaviour
@@ -138,8 +140,8 @@ public class PyRT {
             }
         }
 
-        /** The abstract operation to be applied by the site. */
-        private final SpecialMethod op;
+        /** The {@link SpecialMethod} to be applied by the site. */
+        final SpecialMethod op;
 
         /**
          * The number of times this site has used
@@ -147,6 +149,14 @@ public class PyRT {
          * working and potentially for de-optimisation decisions.
          */
         int fallbackCount;
+
+        /**
+         * The number of guarded invocations cached in the target of
+         * this site by {@link #fallback(Object) fallback}, used to
+         * observe internal working and potentially for de-optimisation
+         * decisions.
+         */
+        int chainLength;
 
         /**
          * Construct a call site with the specific unary operation.
@@ -198,12 +208,13 @@ public class PyRT {
              * If the type has chosen a generic handle, it is because
              * the meaning of the special method may change.
              */
-            if (mh != op.generic) {
+            if (mh != op.generic && chainLength < MAX_CHAIN) {
                 // MH for guarded invocation (becomes new target)
                 MethodHandle guardMH = CLASS_GUARD.bindTo(selfClass);
                 MethodHandle targetMH =
                         guardWithTest(guardMH, mh, getTarget());
                 setTarget(targetMH);
+                chainLength += 1;
             }
             return result;
         }
