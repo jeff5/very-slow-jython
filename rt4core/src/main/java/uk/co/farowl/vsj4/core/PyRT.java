@@ -20,31 +20,46 @@ import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * {@link PyRT} provides run-time support for Python that has been
  * compiled to Java byte code, primarily for {@code invokedynamic} call
  * sites. In some ways, this supersedes methods in {@link Abstract} that
  * support the interpretation of Python byte code. Like those methods,
- * these call sites often wrap a call on a particular special method.
- * Call sites in Java code should behave exactly as their counterparts
- * in {@link Abstract}.
+ * these call sites wrap a call on a particular special method (like
+ * {@code __neg__} and {@code __add__}). Call sites in Java code should
+ * behave exactly as their counterparts in {@link Abstract}.
  * <p>
- * The use of {@code invokedynamic} call sites in compiled code offers a
- * greater potential for dynamic optimisation through specialisation to
- * the actual Java classes encountered in a given place. (It does not
- * benefit widely used code that receives calls with many different
- * object types.)
+ * The use of {@code invokedynamic} call sites has the potential to
+ * unlock dynamic optimisation through specialisation to the actual Java
+ * classes encountered in a given place in the compiled code. It does
+ * not benefit widely used code that receives calls with many different
+ * object types (termed <i>megamutable</i>).
  * <p>
- * The fact that this specialisation is on Java class rather than Python
- * type has two implications.
+ * For this reason, not all the methods in {@link Abstract}, nor all the
+ * special methods, need corresponding call sites. Those like
+ * {@link Abstract#repr(Object)} or {@link Abstract#size(Object)},
+ * wrapping {@code __repr__} or {@code __len__}, exist only to support
+ * built-in methods ({@code repr()} and {@code len()}). A call site to
+ * replace one of those would quickly become megamutable.
+ * <p>
+ * Specialisation takes place on Java class rather than Python type.
+ * This means that the call site will read and embed (under a
+ * class-guard) the method handle it finds via the representation class
+ * of objects presented as the {@code self} argument. This has several
+ * implications:
  * <ol>
- * <li>Primitive operations on simple types (like {@code int.__neg__})
- * dispatch quickly to their exact target implementation.</li>
+ * <li>Primitive operations on immutable types with representations that
+ * are unique to them, largely types defined in Java, dispatch quickly
+ * to their exact target implementation.</li>
  * <li>Operations on Python types that share an implementation class,
- * largely those defined in Python, must find their target in a second
- * step via the Python type of {@code self}.</li>
+ * largely replaceable types defined in Python, must find their target
+ * in a second step via the Python type of {@code self}.</li>
  * </ol>
+ * In the second case, the handle found (and embedded for the class) is
+ * a "bounce" handle that will dynamically invoke the corresponding
+ * special method on {@link WithClass#getType() self.getType()}.
  */
 public class PyRT {
 

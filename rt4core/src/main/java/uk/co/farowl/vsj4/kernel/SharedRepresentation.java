@@ -25,41 +25,6 @@ class SharedRepresentation extends Representation {
     private final Class<?> canonicalClass;
 
     /**
-     * {@code MethodHandle} of type {@code (Object)PyType}, to get the
-     * actual Python type of an {@link Object} object.
-     */
-    private static final MethodHandle getType;
-
-    /**
-     * The type {@code (PyType)MethodHandle} used to cast the method
-     * handle getter.
-     */
-    private static final MethodType MT_MH_FROM_TYPE;
-
-    /** Rights to form method handles. */
-    private static final Lookup LOOKUP = MethodHandles.lookup();
-
-    static {
-        try {
-            // Used as a cast in the formation of getMHfromType
-            // (PyType)MethodHandle
-            MT_MH_FROM_TYPE =
-                    MethodType.methodType(MethodHandle.class, T);
-            // Used as a cast in the formation of getType
-            // (PyType)MethodHandle
-            // getType = λ x : x.getType()
-            // .type() = (Object)PyType
-            getType = LOOKUP
-                    .findVirtual(WithClass.class, "getType",
-                            MethodType.methodType(T))
-                    .asType(MethodType.methodType(T, O));
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-            throw new InterpreterError(e,
-                    "preparing handles in Representation.Shared");
-        }
-    }
-
-    /**
      * Create a {@code Representation} object that is the class used to
      * represent instances of (potentially) many types defined in
      * Python.
@@ -70,6 +35,13 @@ class SharedRepresentation extends Representation {
     SharedRepresentation(Class<?> javaClass, Class<?> canonical) {
         super(javaClass);
         this.canonicalClass = canonical;
+        // Install trampolines so type is consulted
+        for (SpecialMethod sm : SpecialMethod.values()) {
+            if (sm.hasCache()) {
+                // Cache bounces decision to the type.
+                sm.setCache(this, sm.bounce);
+            }
+        }
     }
 
     @Override

@@ -10,6 +10,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.lang.invoke.VarHandle.AccessMode;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +29,7 @@ import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The {@code enum SpecialMethod} enumerates the special method names
@@ -536,43 +538,49 @@ public enum SpecialMethod {
     final VarHandle cache;
 
     /**
-     * The method handle that should be invoked when the implementation
-     * method is not fixed for the representation, because it may be
-     * changed at any time, or the single representation applies to
-     * multiple types. We cannot then provide a stable direct handle,
-     * and must look it up by name on the type of {@code self}.
+     * The method handle that should be published by a
+     * {@code Representation} when there is no cache for the
+     * {@code SpecialMethod} or a more specific handle cannot be placed
+     * in it. The type object will recognise this condition when it
+     * makes its update to its dictionary.
      * <p>
-     * The handle has the signature {@link #signature} and may add
-     * behaviour, such as validating the return type, tailored to the
-     * specific special method. This is a constant for the
-     * {@code SpecialMethod}, whether cached or not.
+     * The handle has the signature {@link #signature}. Invoking the
+     * {@code generic} handle will cause a lookup of the special method
+     * name ({@link #methodName} on the type of the {@code self}
+     * argument and will call the object it finds, with the arguments
+     * provided to the handle invocation.
      * <p>
      * This handle is needed when the the implementation of the special
      * method is in Python. (It will work, or raise the right error,
-     * with any object found in the dictionary of a type.) It may
-     * therefore be used to call the special methods of a
-     * {@link SharedRepresentation shared representation} where the
-     * clique of replaceable types may disagree about the implementation
-     * method.
-     *
-     * @implNote These weasel words allow the possibility of an
-     *     optimisation. All members of the clique share a common
-     *     ancestor in Python. If all inherit the implementation of this
-     *     special method from the common ancestor, the shared
-     *     representation could cache a direct handle to that common
-     *     implementation taken from the (index zero) representation of
-     *     that ancestor. Any clique member that receives a divergent
-     *     definition of the special method has to set the cache in the
-     *     shared representation to this default. However, this is only
-     *     a possibility if a call site (etc.) does not take a copy.
+     * with any object found in the dictionary of a type.)
      */
-    // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
     public final MethodHandle generic;
 
     /**
+     * The method handle that should be published by a
+     * {@link SharedRepresentation} when the {@code SpecialMethod} is
+     * allocated a cache in {@code Representation} objects. The
+     * implementation method is not fixed by the representation class,
+     * since the single representation, in principle, applies to
+     * multiple types.
+     * <p>
+     * The handle has the signature {@link #signature}. Invoking the
+     * {@code bounce} handle will invoke the type-specific handle from
+     * the corresponding cache on the type object of {@code self}. This,
+     * in turn, could be either {@link #generic} or a direct handle on a
+     * Java implementation of the special method for that type.
+     * <p>
+     * A {@code SharedRepresentation} should publish the
+     * {@link #generic} handle where the {@code SpecialMethod} is
+     * {@code not} allocated a cache in {@code Representation} objects.
+     */
+    public final MethodHandle bounce;
+
+    /**
      * Throws a {@link PyBaseException TypeError} when invoked (and has
-     * the same signature as the special method itself).
+     * the same signature {@link #signature} as the special method
+     * itself).
      */
     MethodHandle error;
 
@@ -599,6 +607,8 @@ public enum SpecialMethod {
         this.doc = docstring(doc);
         this.cache = SMUtil.cacheVH(this);
         this.generic = SMUtil.slotMH(this);
+        this.bounce =
+                this.cache == null ? generic : SMUtil.bounceMH(this);
     }
 
     SpecialMethod(Signature signature) {
@@ -948,12 +958,11 @@ public enum SpecialMethod {
     }
 
     /**
-     * Whether this {@code SpecialMethod} has a corresponding cache in
-     * {@link Representation} objects. If not, the effective
+     * Whether this {@code SpecialMethod} is given a corresponding cache
+     * in {@link Representation} objects. If not, the effective
      * {@code MethodHandle} is always the {@link #generic} one.
      *
-     * @param rep target {@code Representation}
-     * @param mh handle value to assign
+     * @return {@code true} iff this {@code SpecialMethod} has a cache
      */
     public boolean hasCache() { return cache != null; }
 
@@ -970,7 +979,7 @@ public enum SpecialMethod {
      */
     void setCache(Representation rep, MethodHandle mh) {
         if (mh == null || !mh.type().equals(getType())) {
-            throw slotTypeError(this, mh);
+            throw handleTypeError(this, mh);
         }
         if (cache != null) { cache.set(rep, mh); }
     }
@@ -1302,12 +1311,40 @@ public enum SpecialMethod {
          */
         static final MethodHandle asJavaBoolean;
 
+        /**
+         * Method handle on {@link BaseType#cast(PyType)}, which checks
+         * a type is a {@code BaseType}, therefore "one of ours". This
+         * may raise {@code TypeError}.
+         */
+        static final MethodHandle asBaseType;
+
+        /**
+         * Method handle applicable to a {@code SpecialMethod} and a
+         * {@link BaseType}, that retrieves the cached method handle
+         * from the provided type. It is equivalent to
+         * {@link SpecialMethod#handle(Representation)}, except it does
+         * not check whether the cache exists for the
+         * {@code SpecialMethod}. (If {@code sm.hasCache()} is false,
+         * you should invoke {@code sm.generic}. It is used to form
+         * {@code sm.bounce}.
+         */
+        static final MethodHandle getCache;
+
+        private static final Class<BaseType> BT = BaseType.class;
+        private static final Class<MethodHandle> MH =
+                MethodHandle.class;
+
         static {
             try {
                 asJavaInt = LOOKUP.findStatic(PyLong.class, "asInt",
                         MethodType.methodType(I, O));
                 asJavaBoolean = LOOKUP.findStatic(Abstract.class,
                         "isTrue", MethodType.methodType(B, O));
+                asBaseType = LOOKUP.findStatic(BT, "cast",
+                        MethodType.methodType(BT, T));
+                getCache = MethodHandles.varHandleExactInvoker(
+                        AccessMode.GET, MethodType.methodType(MH, BT));
+
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 // Handle lookup fails somewhere
                 throw new InterpreterError(e,
@@ -1405,6 +1442,65 @@ public enum SpecialMethod {
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 throw new InterpreterError(e,
                         "creating wrapper to call %s", sm.methodName);
+            }
+        }
+
+        /**
+         * Helper for {@link SpecialMethod} providing a method handle
+         * that accesses the special method cache on the type of
+         * {@code self}, and invokes the handle it finds there.
+         *
+         * @param sm to access on the type of {@code self}
+         * @return a handle that looks up and calls {@code sm}
+         */
+        static MethodHandle bounceMH(SpecialMethod sm) {
+
+            // We aim to create:
+            // bounce = λ(s, ...): sm.cache(type(s)).invoke(s,...)
+            try {
+                /*
+                 * As bounce is only published from shared
+                 * representations, we can use WithClass.getType().
+                 */
+                // type = λ(s): BaseType.cast(type(s))
+                MethodHandle type = LOOKUP.findVirtual(WithClass.class,
+                        "getType", MethodType.methodType(T));
+                type = MethodHandles.filterReturnValue(type,
+                        asBaseType);
+                /*
+                 * It will be safe to cast from Object to WithClass as
+                 * the self-class was mapped to a SharedRepresentation.
+                 */
+                type = type.asType(MethodType.methodType(BT, O));
+
+                /*
+                 * Use the sm.cache VarHandle to make a method that will
+                 * access the sm cache on type(self).
+                 */
+                // getter = λ(s): sm.cache.get(type(s))
+                // TODO assert sm.hasCache();
+                MethodHandle getter = MethodHandles.filterArguments(
+                        getCache.bindTo(sm.cache), 0, type);
+
+                /*
+                 * Create a handle to invoke the handle we shall get
+                 * from type(self) with the arguments originally
+                 * supplied.
+                 */
+                // invoker = λ(h, s,...): h.invoke(s,...)
+                MethodHandle invoker =
+                        MethodHandles.invoker(sm.signature.type);
+
+                // bounce = λ(s,...): getter(type(s)).invoke(s,...)
+                MethodHandle bounce =
+                        MethodHandles.foldArguments(invoker, getter);
+
+                assert bounce.type() == sm.signature.type;
+                return bounce;
+
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw new InterpreterError(e, "creating bounce for %s",
+                        sm.methodName);
             }
         }
 
@@ -1588,9 +1684,9 @@ public enum SpecialMethod {
      * @param mh offered value found unsuitable
      * @return exception with message filled in
      */
-    private static InterpreterError slotTypeError(SpecialMethod sm,
+    private static InterpreterError handleTypeError(SpecialMethod sm,
             MethodHandle mh) {
-        String fmt = "%s not of required type %s for slot %s";
+        String fmt = "%s not of required type %s for %s";
         return new InterpreterError(fmt, mh, sm.getType(), sm);
     }
 
