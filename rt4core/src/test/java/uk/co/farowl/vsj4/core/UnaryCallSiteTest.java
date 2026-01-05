@@ -119,6 +119,9 @@ class UnaryCallSiteTest extends UnitTestSupport {
             examples.addAll(//
                     numberExamples("absolute", PyNumber::absolute, 42,
                             -42, 0, false, -1e42, Integer.MIN_VALUE));
+            examples.addAll(// Not cached
+                    numberExamples("positive", PyNumber::positive, 42,
+                            -42, 0, false, -1e42, Integer.MIN_VALUE));
 
             return examples.stream();
         }
@@ -149,6 +152,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
                     numberExamples("absolute", PyNumber::absolute, 42,
                             -42, 0, -1e42, Integer.MIN_VALUE, objA,
                             objB));
+            examples.addAll(// Not cached
+                    numberExamples("positive", PyNumber::positive, 42,
+                            -42, 0, false, -1e42, Integer.MIN_VALUE,
+                            objA, objB));
 
             return examples.stream();
         }

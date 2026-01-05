@@ -815,10 +815,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __abs__} with signature
      *     {@link Signature#UNARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_abs() {
-        return SpecialMethod.op_abs.generic;
-    }
+    public final MethodHandle op_abs() { return op_abs; }
+
+    private MethodHandle op_abs;
 
     /**
      * Return a matching implementation of {@code __bool__} with

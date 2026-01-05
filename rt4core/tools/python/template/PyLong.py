@@ -1,6 +1,6 @@
 # PyLong.py: A generator for Java files that define the Python int
 
-# Copyright (c)2025 Jython Developers.
+# Copyright (c)2026 Jython Developers.
 # Licensed to PSF under a contributor agreement.
 
 # This generator writes PyLongMethods.java and PyLongBinops.java .
@@ -41,7 +41,7 @@ BIG_INTEGER_CLASS = IntTypeInfo('BigInteger', WorkingType.BIG,
                     itself)
 INTEGER_CLASS = IntTypeInfo('Integer', WorkingType.INT,
                     lambda x: f'BigInteger.valueOf({x})',
-                    lambda x: f'((long) {x})',
+                    lambda x: f'({x}.longValue())',
                     itself)
 BOOLEAN_CLASS = IntTypeInfo('Boolean', WorkingType.INT,
                     lambda x: f'({x} ? ONE : ZERO)',
@@ -288,6 +288,10 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x: f'{x}.negate()',
             lambda x: f'-{x}',
             lambda x: f'-{x}'),
+        UnaryOpInfo('__pos__', OBJECT_CLASS, WorkingType.INT,
+            lambda x: f'{x}',
+            lambda x: f'{x}',
+            lambda x: f'{x}'),
         UnaryOpInfo('__float__', OBJECT_CLASS, WorkingType.INT,
             lambda x: f'PyLong.convertToDouble({x})',
             lambda x: f'((double) {x})',

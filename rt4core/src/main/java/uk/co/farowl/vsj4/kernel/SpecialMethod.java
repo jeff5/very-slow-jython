@@ -1468,7 +1468,6 @@ public enum SpecialMethod {
             }
         }
 
-
         /**
          * Helper for {@link SpecialMethod} and thereby for call sites
          * providing a method handle that raises a Python exception when
@@ -1724,4 +1723,9 @@ public enum SpecialMethod {
         return BaseType.cast(type).op_neg().invokeExact(self);
     }
 
+    @SuppressWarnings("unused")
+    private static Object op_abs(PyType type, Object self)
+            throws Throwable {
+        return BaseType.cast(type).op_abs().invokeExact(self);
+    }
 }

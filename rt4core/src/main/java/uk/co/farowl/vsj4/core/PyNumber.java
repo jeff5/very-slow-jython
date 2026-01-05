@@ -37,6 +37,21 @@ public class PyNumber extends Abstract {
     }
 
     /**
+     * {@code +v}: unary positive with Python semantics.
+     *
+     * @param v operand
+     * @return {@code +v}
+     * @throws Throwable from invoked implementations
+     */
+    public static Object positive(Object v) throws Throwable {
+        try {
+            return representation(v).op_pos().invokeExact(v);
+        } catch (EmptyException e) {
+            throw SpecialMethod.op_pos.operandError(v);
+        }
+    }
+
+    /**
      * {@code ~v}: unary bitwise inversion with Python semantics.
      *
      * @param v operand

@@ -114,6 +114,8 @@ public class PyRT {
             // TODO Maybe use AST node names/enum for call sites?
             case "negative" -> new UnaryOpCallSite(
                     SpecialMethod.op_neg);
+            case "positive" -> new UnaryOpCallSite(
+                    SpecialMethod.op_pos);
             case "absolute" -> new UnaryOpCallSite(
                     SpecialMethod.op_abs);
             case "add" -> new BinaryOpCallSite(SpecialMethod.op_add);
@@ -182,6 +184,13 @@ public class PyRT {
             super(UOP);
             this.op = op;
             setTarget(fallbackMH.bindTo(this));
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "UnaryOpCallSite[%s fallbacks=%s chain=%s]",
+                    op.name(), fallbackCount, chainLength);
         }
 
         /**

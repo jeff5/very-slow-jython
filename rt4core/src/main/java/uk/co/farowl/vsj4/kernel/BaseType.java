@@ -1283,10 +1283,9 @@ public abstract sealed class BaseType extends KernelType implements
     private void updateSpecialMethodCache(SpecialMethod sm,
             LookupResult result, List<Representation> representations) {
 
-        logger.atTrace()
-        .setMessage("update SM cache {}.{} from {}")
-        .addArgument(() -> getName())
-        .addArgument(sm).addArgument(result).log();
+        logger.atTrace().setMessage("update SM cache {}.{} from {}")
+                .addArgument(() -> getName())
+                .addArgument(() -> sm.name()).addArgument(result).log();
 
         if (result == null) {
             /*
