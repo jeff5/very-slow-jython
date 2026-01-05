@@ -1,14 +1,6 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
-
-import static uk.co.farowl.vsj4.core.ClassShorthand.T;
-import static uk.co.farowl.vsj4.support.JavaClassShorthand.O;
-
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;

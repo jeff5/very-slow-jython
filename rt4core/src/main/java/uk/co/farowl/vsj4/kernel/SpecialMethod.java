@@ -10,7 +10,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
-import java.lang.invoke.VarHandle.AccessMode;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -1311,43 +1310,12 @@ public enum SpecialMethod {
          */
         static final MethodHandle asJavaBoolean;
 
-        /**
-         * Method handle on {@link BaseType#cast(PyType)}, which checks
-         * a type is a {@code BaseType}, therefore "one of ours". This
-         * may raise {@code TypeError}.
-         */
-        static final MethodHandle asBaseType;
-
-        /**
-         * Method handle applicable to a {@code SpecialMethod} and a
-         * {@link BaseType}, that retrieves the cached method handle
-         * from the provided type. It is equivalent to
-         * {@link SpecialMethod#handle(Representation)}, except it does
-         * not check whether the cache exists for the
-         * {@code SpecialMethod}. (If {@code sm.hasCache()} is false,
-         * you should invoke {@code sm.generic}. It is used to form
-         * {@code sm.bounce}.
-         */
-        static final MethodHandle getCache;
-
-        private static final Class<BaseType> BT = BaseType.class;
-        private static final Class<Representation> REP =
-                Representation.class;
-        private static final Class<MethodHandle> MH =
-                MethodHandle.class;
-
         static {
             try {
                 asJavaInt = LOOKUP.findStatic(PyLong.class, "asInt",
                         MethodType.methodType(I, O));
                 asJavaBoolean = LOOKUP.findStatic(Abstract.class,
                         "isTrue", MethodType.methodType(B, O));
-                asBaseType = LOOKUP.findStatic(BT, "cast",
-                        MethodType.methodType(BT, T));
-                // MethodType here has to match actual of sm.cache
-                getCache = MethodHandles.varHandleExactInvoker(
-                        AccessMode.GET, MethodType.methodType(MH, REP));
-
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 // Handle lookup fails somewhere
                 throw new InterpreterError(e,
@@ -1449,9 +1417,12 @@ public enum SpecialMethod {
         }
 
         /**
-         * Helper for {@link SpecialMethod} providing a method handle
-         * that accesses the special method cache on the type of
-         * {@code self}, and invokes the handle it finds there.
+         * Helper for {@link SpecialMethod} providing a method handle on
+         * the corresponding trampoline method (e.g.
+         * {@link #op_neg(BaseType, Object)}) invokes the special method
+         * cache on the type of {@code self}. We place this type of
+         * handle in a {@link SharedRepresentation}, and the type is
+         * always a {@link ReplaceableType}.
          *
          * @param sm to access on the type of {@code self}
          * @return a handle that looks up and calls {@code sm}
@@ -1459,45 +1430,34 @@ public enum SpecialMethod {
         static MethodHandle bounceMH(SpecialMethod sm) {
 
             // We aim to create:
-            // bounce = λ(s, ...): sm.cache(type(s)).invoke(s,...)
+            // bounce = λ(s, ...): trampoline(sm)(type(s), s, ...)
             try {
                 /*
-                 * As bounce is only published from shared
-                 * representations, we can use WithClass.getType().
+                 * Find the trampoline method handle smt. The signature
+                 * is that of the special method, with PyType inserted
+                 * first.
                  */
-                // type = λ(s): (Representation) BaseType.cast(type(s))
+                // smt = λ(t,s): BaseType.cast(t,s,...)
+                MethodHandle smt = LOOKUP.findStatic(
+                        SpecialMethod.class, sm.name(),
+                        sm.signature.type.insertParameterTypes(0, T));
+
+                /*
+                 * As bounce is only published from shared
+                 * representations, we can rely on WithClass.getType().
+                 */
+                // type = λ(s): BaseType.cast(type(s))
                 MethodHandle type = LOOKUP.findVirtual(WithClass.class,
                         "getType", MethodType.methodType(T));
-                type = MethodHandles.filterReturnValue(type,
-                        asBaseType);
                 /*
                  * It will be safe to cast from Object to WithClass as
                  * the self-class was mapped to a SharedRepresentation.
-                 * Also from BaseType to Representation, obviously.
                  */
-                type = type.asType(MethodType.methodType(REP, O));
+                type = type.asType(MethodType.methodType(T, O));
 
-                /*
-                 * Use the sm.cache VarHandle to make a method that will
-                 * access the sm cache on type(self).
-                 */
-                // getter = λ(s): sm.cache.get(type(s))
-                assert sm.hasCache();
-                MethodHandle getter = MethodHandles.filterArguments(
-                        getCache.bindTo(sm.cache), 0, type);
-
-                /*
-                 * Create a handle to invoke the handle we shall get
-                 * from type(self) with the arguments originally
-                 * supplied.
-                 */
-                // invoker = λ(h, s,...): h.invoke(s,...)
-                MethodHandle invoker =
-                        MethodHandles.invoker(sm.signature.type);
-
-                // bounce = λ(s,...): getter(type(s)).invoke(s,...)
+                // bounce = λ(s,...): smt(type(s),s,...)
                 MethodHandle bounce =
-                        MethodHandles.foldArguments(invoker, getter);
+                        MethodHandles.foldArguments(smt, type);
 
                 assert bounce.type() == sm.signature.type;
                 return bounce;
@@ -1507,6 +1467,7 @@ public enum SpecialMethod {
                         sm.methodName);
             }
         }
+
 
         /**
          * Helper for {@link SpecialMethod} and thereby for call sites
@@ -1749,4 +1710,18 @@ public enum SpecialMethod {
 
     private static final String UNSUPPORTED_TYPES =
             "unsupported operand type(s) for %s: '%.100s' and '%.100s'";
+
+    // Trampolines ---------------------------------------------------
+    /*
+     * These methods are referenced in SMUtil.bounceMH to create the
+     * bounce handle of corresponding special methods for which a cache
+     * is allocated on Representation objects. Their signature is always
+     * that of the special method, with PyType inserted first.
+     */
+    @SuppressWarnings("unused")
+    private static Object op_neg(PyType type, Object self)
+            throws Throwable {
+        return BaseType.cast(type).op_neg().invokeExact(self);
+    }
+
 }

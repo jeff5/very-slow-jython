@@ -791,7 +791,7 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __neg__} with signature
      *     {@link Signature#UNARY}.
      */
-    public MethodHandle op_neg() { return op_neg; }
+    public final MethodHandle op_neg() { return op_neg; }
 
     private MethodHandle op_neg;
 
