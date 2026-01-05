@@ -1283,11 +1283,12 @@ public abstract sealed class BaseType extends KernelType implements
     private void updateSpecialMethodCache(SpecialMethod sm,
             LookupResult result, List<Representation> representations) {
 
-        if (sm.hasCache()) {
-            // There is no cache for this special method. Ignore.
-            return;
+        logger.atTrace()
+        .setMessage("update SM cache {}.{} from {}")
+        .addArgument(() -> getName())
+        .addArgument(sm).addArgument(result).log();
 
-        } else if (result == null) {
+        if (result == null) {
             /*
              * The special method is not defined for this type. Install
              * a handle that throws EmptyException. (Unlike in CPython,
@@ -1423,7 +1424,7 @@ public abstract sealed class BaseType extends KernelType implements
         logger.atTrace()
                 .setMessage("ask {} is sub-type of {} from base chain")
                 .addArgument(() -> getName())
-                .addArgument(() -> b.getName());
+                .addArgument(() -> b.getName()).log();
         PyType t = this;
         while (t != b) {
             t = t.getBase();

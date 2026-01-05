@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -791,10 +791,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __neg__} with signature
      *     {@link Signature#UNARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_neg() {
-        return SpecialMethod.op_neg.generic;
-    }
+    public MethodHandle op_neg() { return op_neg; }
+
+    private MethodHandle op_neg;
 
     /**
      * Return a matching implementation of {@code __pos__} with

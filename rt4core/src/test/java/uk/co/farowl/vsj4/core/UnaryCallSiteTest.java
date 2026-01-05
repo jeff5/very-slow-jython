@@ -13,10 +13,12 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -31,11 +33,15 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.core.PyRT.UnaryOpCallSite;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
+import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * Test of the mechanism for invoking and updating unary call sites on a
  * variety of types. The particular operations are not the focus: we are
- * testing the mechanisms.
+ * testing the mechanisms. The operations should include cached and
+ * non-cached {@code SpecialMethod}s.
  */
 @DisplayName("A unary call site")
 class UnaryCallSiteTest extends UnitTestSupport {
@@ -50,20 +56,61 @@ class UnaryCallSiteTest extends UnitTestSupport {
     static final Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
-    @DisplayName("for float")
-    abstract class UnaryOpTest {
-        SpecialMethod op;
-
-        void check(Object expected, Object actual) {}
-    }
-
-    static interface ThrowingFunction {
+    static interface ThrowingUnaryFunction {
         Object apply(Object v) throws Throwable;
     }
 
+    /**
+     * Base class for unary call site tests that exercise some numeric
+     * special methods.
+     */
     abstract static class AbstractNumericTest {
 
+        /**
+         * A Python subclass of {@code int} defined as if in
+         * Python.<pre>
+         * MyInt = type("MyInt", (int,), {})
+         * </pre>The type object we get from this should be a shared
+         * one.
+         */
+        static PyType createMyInt() {
+            logger.atTrace().setMessage("Make fresh MyInt type").log();
+            try {
+                return (PyType)PyType.TYPE().call("MyInt",
+                        Py.tuple(PyLong.TYPE), Py.dict());
+            } catch (Throwable e) {
+                throw new InterpreterError(e,
+                        "Failed to make MyInt type");
+            }
+        }
+
+        /**
+         * Create an instance from a type.
+         *
+         * @param type of thing to create
+         * @param args to supply the constructor (positionally)
+         * @return new instance of {@code type}
+         */
+        static Object newInstance(PyType type, Object... args) {
+            try {
+                return type.call(args);
+            } catch (Throwable e) {
+                throw new InterpreterError(e,
+                        "Failed to make %s(%s) instance", type, args);
+            }
+        }
+
+        /**
+         * Build a stream of examples to exercise the parameterised
+         * numerical tests.
+         *
+         * @return stream of
+         *     {@link #numberExample(String, String, ThrowingUnaryFunction, List)
+         *     numberExample} returns
+         */
         static Stream<Arguments> numberExamples() {
+            logger.atTrace()
+                    .setMessage("Make stream of numberExample()").log();
             List<Arguments> examples = new LinkedList<>();
 
             examples.addAll(//
@@ -71,24 +118,45 @@ class UnaryCallSiteTest extends UnitTestSupport {
                             -1e42, true, false));
             examples.addAll(//
                     numberExamples("absolute", PyNumber::absolute, 42,
-                            -42, 0, -1e42, Integer.MIN_VALUE));
+                            -42, 0, false, -1e42, Integer.MIN_VALUE));
+
+            return examples.stream();
+        }
+
+        /**
+         * Build a stream of examples to exercise the parameterised
+         * numerical tests including instances of a custom type.
+         *
+         * @return stream of
+         *     {@link #numberExample(String, String, ThrowingUnaryFunction, List)
+         *     numberExample} returns
+         */
+        static Stream<Arguments> numberExamplesCustom() {
+
+            PyType MyInt = createMyInt();
+            Object objA = newInstance(MyInt, 7);
+            Object objB = newInstance(MyInt, -8);
+
+            logger.atTrace().setMessage(
+                    "Make stream of numberExample() with custom type")
+                    .log();
+            List<Arguments> examples = new LinkedList<>();
+
+            examples.addAll(//
+                    numberExamples("negative", PyNumber::negative, 42,
+                            -1e42, objA, objB));
+            examples.addAll(//
+                    numberExamples("absolute", PyNumber::absolute, 42,
+                            -42, 0, -1e42, Integer.MIN_VALUE, objA,
+                            objB));
 
             return examples.stream();
         }
 
         private static List<Arguments> numberExamples(String name,
-                ThrowingFunction ref, Object... values) {
+                ThrowingUnaryFunction ref, Object... values) {
             // Inflate values to a list of multiple representations
-            List<Object> reps = new ArrayList<>();
-            for (Object value : values) {
-                if (value instanceof Integer v) {
-                    reps.addAll(inflate(v));
-                } else if (value instanceof Double v) {
-                    reps.addAll(inflate(v));
-                } else if (value instanceof Boolean v) {
-                    reps.addAll(inflate(v));
-                }
-            }
+            List<Object> reps = inflateAll(values);
 
             /*
              * We return a list of several test cases containing the
@@ -97,11 +165,13 @@ class UnaryCallSiteTest extends UnitTestSupport {
              */
             List<Arguments> examples = new LinkedList<>();
 
-            Random random = new Random(4242);
+            Random random = new Random(4243);
             for (int i = 0; i < 3; i++) {
                 Collections.shuffle(reps, random);
-                examples.add(
-                        numberExample(name, ref, List.copyOf(reps)));
+                final StringJoiner sj = new StringJoiner(",", "{", "}");
+                typeNames(reps).forEach(s -> sj.add(s));
+                examples.add(numberExample(name, sj.toString(), ref,
+                        List.copyOf(reps)));
             }
             return examples;
         }
@@ -111,54 +181,82 @@ class UnaryCallSiteTest extends UnitTestSupport {
          * type and a list of values to submit to it.
          *
          * @param name of the type of call site
+         * @param mix of types in the example
          * @param ref reference function to match
          * @param values to apply to
          * @return arguments used that way in the tests
          */
-        private static Arguments numberExample(String name,
-                ThrowingFunction ref, List<Object> values) {
+        private static Arguments numberExample(String name, String mix,
+                ThrowingUnaryFunction ref, List<Object> values) {
             try {
                 CallSite cs = PyRT.bootstrap(LOOKUP, name,
                         Signature.UNARY.type);
-                return arguments(name, ref, cs, values);
+                return arguments(name, mix, ref, cs, values);
             } catch (NoSuchMethodException e) {
                 logger.atError().setMessage(
-                        "failed to create test arguments for \"{}\"")
-                        .addArgument(name).log();
-                return arguments(name, ref, null, values);
+                        "failed to create test arguments for \"{}\" {}")
+                        .addArgument(name).addArgument(mix).log();
+                return arguments(name, mix, ref, null, values);
             }
+        }
+
+        /**
+         * Represent each value in the arguments in the several forms
+         * accepted by Jython for its type.
+         *
+         * @param values to represent
+         * @return a longer list of the same values
+         */
+        private static List<Object> inflateAll(Object[] values) {
+            // Inflate values to a list of multiple representations
+            List<Object> reps = new ArrayList<>();
+            for (Object value : values) {
+                if (value instanceof Integer v) {
+                    inflate(reps, v);
+                } else if (value instanceof Double v) {
+                    inflate(reps, v);
+                } else {
+                    reps.add(value);
+                }
+            }
+            return reps;
+        }
+
+        /**
+         * The names of the unique types of the objects in the list in
+         * encounter order.
+         *
+         * @param values to get the types from
+         * @return names of the types
+         */
+        private static Set<String> typeNames(List<Object> values) {
+            // Inflate values to a list of multiple representations
+            Set<String> names = new LinkedHashSet<>();
+            for (Object value : values) {
+                names.add(PyType.of(value).getName());
+            }
+            return names;
         }
 
         /**
          * The same value in all feasible {@code float} representations.
          */
-        private static List<Object> inflate(double v) {
-            return List.of(Double.valueOf(v), new PyFloat(v));
+        private static void inflate(List<Object> reps, double v) {
+            reps.add(Double.valueOf(v));
+            reps.add(new PyFloat(v));
         }
 
         /**
-         * The same value in all feasible {@code float} and {@code int}
-         * representations.
+         * The same value in all feasible {@code int} representations.
          */
-        private static List<Object> inflate(int v) {
-            return List.of(Integer.valueOf(v), BigInteger.valueOf(v),
-                    newPyLong(v), Double.valueOf(v), new PyFloat(v));
-        }
-
-        /**
-         * The same value in all feasible {@code bool} and {@code int}
-         * representations.
-         */
-        private static List<Object> inflate(boolean v) {
-            int i = v ? 1 : 0;
-            return List.of(Boolean.valueOf(v), Integer.valueOf(i),
-                    BigInteger.valueOf(i), newPyLong(i));
+        private static void inflate(List<Object> reps, int v) {
+            reps.add(Integer.valueOf(v));
+            reps.add(BigInteger.valueOf(v));
+            reps.add(newPyLong(v));
         }
     }
 
-    /**
-     * Test with float
-     */
+    /** Test of numerical operations on float and int types. */
     @Nested
     @DisplayName("numerical operations")
     class NumericTest extends AbstractNumericTest {
@@ -170,11 +268,11 @@ class UnaryCallSiteTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         @DisplayName("match abstract API")
-        @ParameterizedTest(name = "\"{0}\"")
+        @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamples")
-        void testMatchSpecial(String name, ThrowingFunction ref,
-                UnaryOpCallSite cs, List<Object> values)
-                throws Throwable {
+        void testMatchSpecial(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
 
             // Bootstrap the call site
             MethodHandle invoker = cs.dynamicInvoker();
@@ -197,11 +295,11 @@ class UnaryCallSiteTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         @DisplayName("fallback as expected")
-        @ParameterizedTest(name = "\"{0}\"")
+        @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamples")
-        void testFallbackCounts(String name, ThrowingFunction ref,
-                UnaryOpCallSite cs, List<Object> values)
-                throws Throwable {
+        void testFallbackCounts(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
 
             MethodHandle invoker = cs.dynamicInvoker();
 
@@ -236,6 +334,47 @@ class UnaryCallSiteTest extends UnitTestSupport {
                 assertEquals(cached.size(), cs.chainLength,
                         "chain length");
             }
+        }
+    }
+
+    /** Test of numerical operations on float, int and custom types. */
+    @Nested
+    @DisplayName("numerical operations (custom)")
+    class NumericTestCustom extends NumericTest {
+        /**
+         * Invoke a special method call site and compare it to the
+         * result from the abstract API for the presented values in
+         * order.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Override
+        @DisplayName("match abstract API")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom")
+        void testMatchSpecial(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testMatchSpecial(name, mix, ref, cs, values);
+        }
+
+        /**
+         * Invoke a special method call site for the presented values in
+         * order, examining fall-back and new specialisations added as
+         * we go along. This is sensitive to the strategy used by the
+         * call site, so as that changes, change the test to match the
+         * intent.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Override
+        @DisplayName("fallback as expected")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom")
+        void testFallbackCounts(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testFallbackCounts(name, mix, ref, cs, values);
         }
     }
 
@@ -370,4 +509,21 @@ class UnaryCallSiteTest extends UnitTestSupport {
         assertEquals(floats.size(), cs.fallbackCount, "fallback calls");
         assertEquals(0, cs.chainLength, "chain length");
     }
+
+    /**
+     * A Python type defined in Java with some exposed special and other
+     * methods.
+     */
+    static class MyIntOperations {
+        static PyType TYPE = PyType.fromSpec(
+                new TypeSpec("MyIntOps", MethodHandles.lookup()));
+
+        static Object __neg__(Object self) { return 42; }
+
+        @PythonMethod
+        static Object _abs(Object self) {
+            return PyLong.asInt(self) * 2;
+        }
+    }
+
 }

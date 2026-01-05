@@ -1331,6 +1331,8 @@ public enum SpecialMethod {
         static final MethodHandle getCache;
 
         private static final Class<BaseType> BT = BaseType.class;
+        private static final Class<Representation> REP =
+                Representation.class;
         private static final Class<MethodHandle> MH =
                 MethodHandle.class;
 
@@ -1342,8 +1344,9 @@ public enum SpecialMethod {
                         "isTrue", MethodType.methodType(B, O));
                 asBaseType = LOOKUP.findStatic(BT, "cast",
                         MethodType.methodType(BT, T));
+                // MethodType here has to match actual of sm.cache
                 getCache = MethodHandles.varHandleExactInvoker(
-                        AccessMode.GET, MethodType.methodType(MH, BT));
+                        AccessMode.GET, MethodType.methodType(MH, REP));
 
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 // Handle lookup fails somewhere
@@ -1462,7 +1465,7 @@ public enum SpecialMethod {
                  * As bounce is only published from shared
                  * representations, we can use WithClass.getType().
                  */
-                // type = λ(s): BaseType.cast(type(s))
+                // type = λ(s): (Representation) BaseType.cast(type(s))
                 MethodHandle type = LOOKUP.findVirtual(WithClass.class,
                         "getType", MethodType.methodType(T));
                 type = MethodHandles.filterReturnValue(type,
@@ -1470,15 +1473,16 @@ public enum SpecialMethod {
                 /*
                  * It will be safe to cast from Object to WithClass as
                  * the self-class was mapped to a SharedRepresentation.
+                 * Also from BaseType to Representation, obviously.
                  */
-                type = type.asType(MethodType.methodType(BT, O));
+                type = type.asType(MethodType.methodType(REP, O));
 
                 /*
                  * Use the sm.cache VarHandle to make a method that will
                  * access the sm cache on type(self).
                  */
                 // getter = λ(s): sm.cache.get(type(s))
-                // TODO assert sm.hasCache();
+                assert sm.hasCache();
                 MethodHandle getter = MethodHandles.filterArguments(
                         getCache.bindTo(sm.cache), 0, type);
 
