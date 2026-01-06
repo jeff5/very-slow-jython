@@ -34,8 +34,6 @@ import uk.co.farowl.vsj4.core.PyRT.UnaryOpCallSite;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * Test of the mechanism for invoking and updating unary call sites on a
@@ -67,20 +65,20 @@ class UnaryCallSiteTest extends UnitTestSupport {
     abstract static class AbstractNumericTest {
 
         /**
-         * A Python subclass of {@code int} defined as if in
-         * Python.<pre>
-         * MyInt = type("MyInt", (int,), {})
+         * A Python subclass defined as if in Python.<pre>
+         * MyInt = type(name, bases, {})
          * </pre>The type object we get from this should be a shared
          * one.
          */
-        static PyType createMyInt() {
-            logger.atTrace().setMessage("Make fresh MyInt type").log();
+        static PyType createType(String name, PyType... bases) {
+            logger.atTrace().setMessage("Make fresh '{}' type")
+                    .addArgument(name).log();
             try {
-                return (PyType)PyType.TYPE().call("MyInt",
-                        Py.tuple(PyLong.TYPE), Py.dict());
+                return (PyType)PyType.TYPE().call(name,
+                        PyTuple.from(bases), Py.dict());
             } catch (Throwable e) {
-                throw new InterpreterError(e,
-                        "Failed to make MyInt type");
+                throw new InterpreterError(e, "Failed to make %s type",
+                        name);
             }
         }
 
@@ -136,13 +134,15 @@ class UnaryCallSiteTest extends UnitTestSupport {
          */
         static Stream<Arguments> numberExamplesCustom() {
 
-            PyType MyInt = createMyInt();
-            Object objA = newInstance(MyInt, 7);
-            Object objB = newInstance(MyInt, -8);
-
             logger.atTrace().setMessage(
                     "Make stream of numberExample() with custom type")
                     .log();
+
+            // Create a sub-class of int and two instances
+            PyType MyInt = createType("MyInt", PyLong.TYPE);
+            Object objA = newInstance(MyInt, 7);
+            Object objB = newInstance(MyInt, -8);
+
             List<Arguments> examples = new LinkedList<>();
 
             examples.addAll(//
@@ -152,6 +152,58 @@ class UnaryCallSiteTest extends UnitTestSupport {
                     numberExamples("absolute", PyNumber::absolute, 42,
                             -42, 0, -1e42, Integer.MIN_VALUE, objA,
                             objB));
+            examples.addAll(// Not cached
+                    numberExamples("positive", PyNumber::positive, 42,
+                            -42, 0, false, -1e42, Integer.MIN_VALUE,
+                            objA, objB));
+
+            return examples.stream();
+        }
+
+        /**
+         * Build a stream of examples to exercise the parameterised
+         * numerical tests including instances of a custom type.
+         *
+         * @return stream of
+         *     {@link #numberExample(String, String, ThrowingUnaryFunction, List)
+         *     numberExample} returns
+         */
+        static Stream<Arguments> numberExamplesCustom2() {
+
+            logger.atTrace().setMessage(
+                    "Make stream of numberExample() with two custom types")
+                    .log();
+
+            // Create sub-classes of int and an instances of each
+            PyType MyInt = createType("MyInt", PyLong.TYPE);
+            Object objA = newInstance(MyInt, 7);
+
+            PyType MyInt2 = createType("MyInt2", MyInt);
+            Object objB = newInstance(MyInt2, -8);
+
+            /*
+             * Override a method MyInt. MyInt2 should see it by
+             * inheritance. The simplest thing for us is to steal a
+             * different int method: MyInt.__neg__ = int.__float__ . The
+             * exact response to this (but probably not the test) will
+             * change if we implement lookup caching in type objects.
+             */
+            try {
+                Object neg = Abstract.getAttr(PyLong.TYPE, "__float__");
+                Abstract.setAttr(MyInt, "__neg__", neg);
+            } catch (Throwable e) {
+                throw new InterpreterError(e,
+                        "Failed to update custom type");
+            }
+
+            List<Arguments> examples = new LinkedList<>();
+
+            examples.addAll(//
+                    numberExamples("negative", PyNumber::negative, 42,
+                            objA, objB));
+            examples.addAll(//
+                    numberExamples("absolute", PyNumber::absolute, 42,
+                            -42, 0, true, objA, objB));
             examples.addAll(// Not cached
                     numberExamples("positive", PyNumber::positive, 42,
                             -42, 0, false, -1e42, Integer.MIN_VALUE,
@@ -265,7 +317,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
 
     /** Test of numerical operations on float and int types. */
     @Nested
-    @DisplayName("numerical operations")
+    @DisplayName("encountering built-in types")
     class NumericTest extends AbstractNumericTest {
         /**
          * Invoke a special method call site and compare it to the
@@ -274,7 +326,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
          *
          * @throws Throwable unexpectedly
          */
-        @DisplayName("match abstract API")
+        @DisplayName("matches abstract API")
         @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamples")
         void testMatchSpecial(String name, String mix,
@@ -301,7 +353,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
          *
          * @throws Throwable unexpectedly
          */
-        @DisplayName("fallback as expected")
+        @DisplayName("falls back as expected")
         @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamples")
         void testFallbackCounts(String name, String mix,
@@ -344,9 +396,12 @@ class UnaryCallSiteTest extends UnitTestSupport {
         }
     }
 
-    /** Test of numerical operations on float, int and custom types. */
+    /**
+     * Test of numerical operations on float, int and two custom types
+     * related by inheritance.
+     */
     @Nested
-    @DisplayName("numerical operations (custom)")
+    @DisplayName("encountering built-in and derived types")
     class NumericTestCustom extends NumericTest {
         /**
          * Invoke a special method call site and compare it to the
@@ -356,7 +411,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         @Override
-        @DisplayName("match abstract API")
+        @DisplayName("matches abstract API")
         @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamplesCustom")
         void testMatchSpecial(String name, String mix,
@@ -375,9 +430,50 @@ class UnaryCallSiteTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         @Override
-        @DisplayName("fallback as expected")
+        @DisplayName("falls back as expected")
         @ParameterizedTest(name = "\"{0}\" {1}")
         @MethodSource("numberExamplesCustom")
+        void testFallbackCounts(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testFallbackCounts(name, mix, ref, cs, values);
+        }
+    }
+
+    /** Test of numerical operations on float, int and custom types. */
+    @Nested
+    @DisplayName("encountering built-in and two derived types")
+    class NumericTestCustom2 extends NumericTest {
+        /**
+         * Invoke a special method call site and compare it to the
+         * result from the abstract API for the presented values in
+         * order.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Override
+        @DisplayName("matches abstract API")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom2")
+        void testMatchSpecial(String name, String mix,
+                ThrowingUnaryFunction ref, UnaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testMatchSpecial(name, mix, ref, cs, values);
+        }
+
+        /**
+         * Invoke a special method call site for the presented values in
+         * order, examining fall-back and new specialisations added as
+         * we go along. This is sensitive to the strategy used by the
+         * call site, so as that changes, change the test to match the
+         * intent.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Override
+        @DisplayName("falls back as expected")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom2")
         void testFallbackCounts(String name, String mix,
                 ThrowingUnaryFunction ref, UnaryOpCallSite cs,
                 List<Object> values) throws Throwable {
@@ -516,21 +612,4 @@ class UnaryCallSiteTest extends UnitTestSupport {
         assertEquals(floats.size(), cs.fallbackCount, "fallback calls");
         assertEquals(0, cs.chainLength, "chain length");
     }
-
-    /**
-     * A Python type defined in Java with some exposed special and other
-     * methods.
-     */
-    static class MyIntOperations {
-        static PyType TYPE = PyType.fromSpec(
-                new TypeSpec("MyIntOps", MethodHandles.lookup()));
-
-        static Object __neg__(Object self) { return 42; }
-
-        @PythonMethod
-        static Object _abs(Object self) {
-            return PyLong.asInt(self) * 2;
-        }
-    }
-
 }
