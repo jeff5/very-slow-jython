@@ -20,6 +20,7 @@ import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.WithClass;
 
 /**
@@ -211,14 +212,13 @@ public class PyRT {
             Class<?> selfClass = self.getClass();
             Representation rep = registry.get(selfClass);
 
-            // A handle on the implementation of sm in rep
-            MethodHandle mh = op.handle(rep);
+            // A handle on the implementation of op in rep
+            MethodHandle mh = op.handle(rep), targetMH, guardMH;
 
             /*
-             * Compute the result for this case. If the operation
-             * throws, it throws here and we do not bind resultMH as a
-             * new target. If it's a value-dependent one-off, we'll get
-             * another go.
+             * If the operation throws, it throws here and we do not
+             * bind a new target. If it's a value-dependent one-off,
+             * we'll get another go.
              */
             Object result;
             try {
@@ -234,9 +234,8 @@ public class PyRT {
              */
             if (mh != op.generic && chainLength < MAX_CHAIN) {
                 // MH for guarded invocation (becomes new target)
-                MethodHandle guardMH = CLASS_GUARD.bindTo(selfClass);
-                MethodHandle targetMH =
-                        guardWithTest(guardMH, mh, getTarget());
+                guardMH = CLASS_GUARD.bindTo(selfClass);
+                targetMH = guardWithTest(guardMH, mh, getTarget());
                 setTarget(targetMH);
                 chainLength += 1;
             }
@@ -270,15 +269,15 @@ public class PyRT {
         private static final MethodHandle BINARY_EMPTY =
                 SpecialMethod.Signature.BINARY.empty;
 
-        private static final MethodHandle fallbackMH;
+        /** Limit on {@link #chainLength}. */
+        public static final int MAX_CHAIN = 6;
 
         /**
-         * The number of times this site has used
-         * {@link #fallback(Object, Object) fallback}, used to observe
-         * internal working and potentially for de-optimisation
-         * decisions.
+         * Handle to {@link #fallback(Object, Object)}, which is the
+         * behaviour for this call site when the class of {@code self}
+         * does not match any of the embedded guards.
          */
-        int fallbackCount;
+        private static final MethodHandle fallbackMH;
 
         static {
             try {
@@ -289,8 +288,25 @@ public class PyRT {
             }
         }
 
-        /** The abstract operation to be applied by the site. */
-        private final SpecialMethod op;
+        /** The {@link SpecialMethod} to be applied by the site. */
+        final SpecialMethod op;
+        /** The reflected {@link SpecialMethod} to be applied. */
+        final SpecialMethod rop;
+
+        /**
+         * The number of times this site has used
+         * {@link #fallback(Object) fallback}, used to observe internal
+         * working and potentially for de-optimisation decisions.
+         */
+        int fallbackCount;
+
+        /**
+         * The number of guarded invocations cached in the target of
+         * this site by {@link #fallback(Object) fallback}, used to
+         * observe internal working and potentially for de-optimisation
+         * decisions.
+         */
+        int chainLength;
 
         /**
          * Construct a call site with the given binary operation.
@@ -300,7 +316,184 @@ public class PyRT {
         public BinaryOpCallSite(SpecialMethod op) {
             super(BINOP);
             this.op = op;
+            this.rop = op.reflected;
             setTarget(fallbackMH.bindTo(this));
+        }
+
+        /**
+         * Compute the result of the call for this particular pair of
+         * arguments, and update the site to do this efficiently for the
+         * same classes in the future, if it is safe and effective to do
+         * so. We call this when the class of {@code v} did not match
+         * any of the embedded guards.
+         *
+         * @param v left operand
+         * @param w right operand
+         * @return {@code op(v, w)}
+         * @throws Throwable on errors or if not implemented
+         */
+        @SuppressWarnings("unused")
+        private Object fallback(Object v, Object w) throws Throwable {
+            // TODO binary call site with shared representations
+
+            fallbackCount += 1;
+
+            Class<?> vClass = v.getClass();
+            Representation vRep = registry.get(vClass);
+            BaseType vType = vRep.pythonType(v);
+            MethodHandle vMH;   // e.g. type(v).__sub__
+
+            Class<?> wClass = w.getClass();
+            Representation wRep = registry.get(wClass);
+            BaseType wType = wRep.pythonType(w);
+            MethodHandle wRH;   // e.g. type(w).__rsub__
+
+            MethodHandle mh, targetMH, guardMH;
+            Object result;
+
+            // A Python binary op consults both types in the pattern:
+            // if (wType == vType) {
+            // ... ask v.op only
+            // } else {
+            // if (wType.isSubTypeOf(vType)) {
+            // ... ask w.rop then v.op
+            // } else {
+            // ... ask v.op then w.rop
+            // }}
+            /*
+             * We create a method handle, to guard with a pair of
+             * classes, that explores only the alternatives that might
+             * succeed. This choice depends on whether each class is a
+             * shared representation.
+             */
+
+            if (vType.hasFeature(TypeFlag.REPLACEABLE)) {
+                // class(v) does not fix type(v).
+                if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
+                    // class(w) does not fix type(w).
+                    try {
+                        /*
+                         * It is complex to create a "double bounce"
+                         * handle so we compute the answer but do not
+                         * cache the method.
+                         */
+                        Object r = dynamicResult(vType, v, wType, w);
+                        if (r != Py.NotImplemented) { return r; }
+                    } catch (EmptyException e) {}
+                    // Empty or r=NotImplemented
+                    throw op.operandError(v, w);
+
+                } else {
+                    // class(w) fixes type(w).
+                    vMH = op.handle(vRep);      // = op.bounce
+                    if ((wRH = rop.handle(wType)) == BINARY_EMPTY) {
+                        // We need only consider vMH.
+                        mh = vMH;
+                    } else {
+                        /*
+                         * No type represented by class(w) is a sub-type
+                         * of type(v), or type(w) would have been
+                         * replaceable too. Always try v.op(w) then
+                         * w.rop(v)
+                         */
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                }
+
+            } else if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
+                // class(v) fixes type(v).
+                // class(w) does not fix type(w).
+                wRH = rop.handle(wRep);     // = op.bounce
+                // wRH = permuteArguments(wRH, BINOP, 1, 0);
+                if ((vMH = op.handle(vRep)) == BINARY_EMPTY) {
+                    // We need only consider wRH
+                    mh = wRH;
+                } else {
+                    /*
+                     * The types (all of them or none) represented by
+                     * class(w) may be proper sub-types of type(v).
+                     */
+                    if (wType.isSubTypeOf(vType)) {
+                        // Try w.rop(v),then v.rop(w).
+                        mh = firstImplementer(wRH, vMH);
+                    } else {
+                        // Try v.op(w) then w.rop(v)
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                }
+
+            } else {
+                // class(v) fixes type(v).
+                // class(w) fixes type(w).
+                vMH = op.handle(vRep);
+                if (vType == wType) {
+                    // We need only consider vMH
+                    mh = vMH;
+                } else {
+                    wRH = rop.handle(wRep);
+                    if (wType.isSubTypeOf(vType)) {
+                        // Try w.rop(v),then v.rop(w).
+                        mh = firstImplementer(wRH, vMH);
+                    } else {
+                        // Try v.op(w) then w.rop(v)
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                }
+            }
+
+            // MH for guarded invocation (becomes new target)
+            // guardMH = insertArguments(CLASS2_GUARD, 0, vClass,
+            // wClass);
+            // targetMH = guardWithTest(guardMH, mh, getTarget());
+            // setTarget(targetMH);
+            // chainLength += 1;
+
+            MethodHandle resultMH =
+                    firstImplementer(mh, op.errorHandle());
+            return resultMH.invokeExact(v, w);
+        }
+
+        private Object dynamicResult(BaseType vType, Object v,
+                BaseType wType, Object w)
+                throws EmptyException, Throwable {
+            /*
+             * We know that the op and rop handles in the Representation
+             * objects of class(v) and class(w) are bounce handles, so
+             * we use those in their targets in the type objects
+             * directly.
+             */
+            MethodHandle vMH, wRH;
+
+            if (wType == vType) {
+                // Same types so only try v.op(w).
+                vMH = op.handle(vType);
+                return vMH.invokeExact(v, w);
+
+            } else {
+                if (wType.isSubTypeOf(vType)) {
+                    // type(w) is sub-type of type(v). Try w.rop(v).
+                    wRH = rop.handle(wType);
+                    try {
+                        // In the reflected MH, self is second.
+                        Object r = wRH.invokeExact(v, w);
+                        if (r != Py.NotImplemented) { return r; }
+                    } catch (EmptyException e) {}
+                    // type(w) does not define w.rop. Try v.op.
+                    vMH = op.handle(vType);
+                    return vMH.invokeExact(v, w);
+                } else {
+                    // Try v.op(w) first.
+                    vMH = op.handle(vType);
+                    try {
+                        Object r = vMH.invokeExact(v, w);
+                        if (r != Py.NotImplemented) { return r; }
+                    } catch (EmptyException e) {}
+                    // type(v) does not define v.op. Try w.rop(v).
+                    wRH = rop.handle(wType);
+                    // In the reflected MH, self is second.
+                    return wRH.invokeExact(v, w);
+                }
+            }
         }
 
         /**
@@ -315,8 +508,8 @@ public class PyRT {
          * @return {@code op(v, w)}
          * @throws Throwable on errors or if not implemented
          */
-        @SuppressWarnings("unused")
-        private Object fallback(Object v, Object w) throws Throwable {
+         private Object fallback_saved(Object v, Object w)
+                throws Throwable {
             // TODO binary call site with shared representations
             /*
              * There is a problem with the logic of this in cases where
@@ -416,7 +609,6 @@ public class PyRT {
                  * vType provides class-specific implementations of
                  * op(v,w), but hang on ... both have the same type.
                  */
-                assert (vMH == BINARY_EMPTY); // XXX error instead?
             } else {
                 /*
                  * The type provides no class-specific implementation,
@@ -433,7 +625,7 @@ public class PyRT {
                 return op.errorHandle();
             } else {
                 /*
-                 * smv is a handle that may return Py.NotImplemented,
+                 * vMH is a handle that may return Py.NotImplemented,
                  * which we must turn into an error message.
                  */
                 return firstImplementer(vMH, op.errorHandle());
@@ -457,7 +649,7 @@ public class PyRT {
                 Representation vRep, BaseType wType,
                 Representation wRep) {
 
-            MethodHandle resultMH, smv, smw;
+            MethodHandle resultMH, vMH, wMH;
 
             // Does vType define class-specific implementations?
             BinopGrid binops = vType.getBinopGrid(op);
@@ -468,21 +660,21 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the answer.
                  */
-                smv = binops.get(vRep, wRep);
-                if (smv != BINARY_EMPTY) { return smv; }
+                vMH = binops.get(vRep, wRep);
+                if (vMH != BINARY_EMPTY) { return vMH; }
                 /*
                  * vType provides class-specific implementations of
                  * op(v,w), but the signature we are looking for is not
                  * amongst them.
                  */
-                assert (smv == BINARY_EMPTY);
+                assert (vMH == BINARY_EMPTY);
             } else {
                 /*
                  * vType provides no class-specific implementation of
                  * op(v,w). Get the handle from the Representation
                  * object.
                  */
-                smv = op.handle(vRep);
+                vMH = op.handle(vRep);
             }
 
             // Does wType define class-specific rop implementations?
@@ -495,34 +687,34 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the only alternative to smv.
                  */
-                smw = binops.get(wRep, vRep);
-                if (smw != BINARY_EMPTY) {
+                wMH = binops.get(wRep, vRep);
+                if (wMH != BINARY_EMPTY) {
                     // wType provides a rop(w,v) - note ordering
-                    smw = permuteArguments(smw, BINOP, 1, 0);
-                    if (smv == BINARY_EMPTY) {
+                    wMH = permuteArguments(wMH, BINOP, 1, 0);
+                    if (vMH == BINARY_EMPTY) {
                         // It's the only offer, so it's the answer.
-                        return smw;
+                        return wMH;
                     }
                     /*
                      * smv is also a valid offer, which must be given
                      * first refusal. Only if smv returns
                      * Py.NotImplemented, will we try smw.
                      */
-                    return firstImplementer(smv, smw);
+                    return firstImplementer(vMH, wMH);
                 }
                 /*
                  * wType provides class-specific implementations of
                  * rop(w,v), but the signature we are looking for is not
                  * amongst them.
                  */
-                assert (smw == BINARY_EMPTY);
+                assert (wMH == BINARY_EMPTY);
             } else {
                 /*
                  * wType provides no class-specific implementation of
                  * rop(w,v). Get the handle from the Representation
                  * object.
                  */
-                smw = rop.handle(wRep);
+                wMH = rop.handle(wRep);
             }
 
             /*
@@ -531,23 +723,23 @@ public class PyRT {
              * result for the classes at hand. Either may be empty.
              * Either may return Py.NotImplemented.
              */
-            if (smw == BINARY_EMPTY) {
-                if (smv == BINARY_EMPTY) {
+            if (wMH == BINARY_EMPTY) {
+                if (vMH == BINARY_EMPTY) {
                     // Easy case: neither slot was defined. We're done.
                     return op.errorHandle();
                 } else {
                     // smv was the only one defined
-                    resultMH = smv;
+                    resultMH = vMH;
                 }
             } else {
                 // smw was defined
-                smw = permuteArguments(smw, BINOP, 1, 0);
-                if (smv == BINARY_EMPTY) {
+                wMH = permuteArguments(wMH, BINOP, 1, 0);
+                if (vMH == BINARY_EMPTY) {
                     // smv was not, so smw is the only one defined
-                    resultMH = smw;
+                    resultMH = wMH;
                 } else {
                     // Both were defined, so try them in order
-                    resultMH = firstImplementer(smv, smw);
+                    resultMH = firstImplementer(vMH, wMH);
                 }
             }
 
@@ -576,7 +768,7 @@ public class PyRT {
                 Representation vRep, BaseType wType,
                 Representation wRep) {
 
-            MethodHandle resultMH, smv, smw;
+            MethodHandle resultMH, vMH, wMH;
 
             // Does wType define class-specific rop implementations?
             SpecialMethod rop = op.reflected;
@@ -588,24 +780,24 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the answer.
                  */
-                smw = binops.get(wRep, vRep);
-                if (smw != BINARY_EMPTY) {
+                wMH = binops.get(wRep, vRep);
+                if (wMH != BINARY_EMPTY) {
                     // wType provides a rop(w,v) - note ordering
-                    return permuteArguments(smw, BINOP, 1, 0);
+                    return permuteArguments(wMH, BINOP, 1, 0);
                 }
                 /*
                  * wType provides class-specific implementations of
                  * rop(w,v), but the signature we are looking for is not
                  * amongst them.
                  */
-                assert smw == BINARY_EMPTY;
+                assert wMH == BINARY_EMPTY;
             } else {
                 /*
                  * wType provides no class-specific implementation of
                  * rop(w,v). Get the handle from the Representation
                  * object.
                  */
-                smw = rop.handle(wRep);
+                wMH = rop.handle(wRep);
             }
 
             // Does vType define class-specific implementations?
@@ -617,34 +809,34 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the only alternative to smw.
                  */
-                smv = binops.get(vRep, wRep);
-                if (smv != BINARY_EMPTY) {
+                vMH = binops.get(vRep, wRep);
+                if (vMH != BINARY_EMPTY) {
                     // vType provides an op(v,w)
-                    if (smw == BINARY_EMPTY) {
+                    if (wMH == BINARY_EMPTY) {
                         // It's the only offer, so it's the answer.
-                        return smv;
+                        return vMH;
                     }
                     /*
                      * smw is also a valid offer, which must be given
                      * first refusal. Only if smw returns
                      * Py.NotImplemented, will we try smv.
                      */
-                    smw = permuteArguments(smw, BINOP, 1, 0);
-                    return firstImplementer(smw, smv);
+                    wMH = permuteArguments(wMH, BINOP, 1, 0);
+                    return firstImplementer(wMH, vMH);
                 }
                 /*
                  * vType provides class-specific implementations of
                  * op(v,w), but the signature we are looking for is not
                  * amongst them.
                  */
-                assert smv == BINARY_EMPTY;
+                assert vMH == BINARY_EMPTY;
             } else {
                 /*
                  * vType provides no class-specific implementation of
                  * op(v,w). Get the handle from the Representation
                  * object.
                  */
-                smv = op.handle(vRep);
+                vMH = op.handle(vRep);
             }
 
             /*
@@ -653,23 +845,23 @@ public class PyRT {
              * result for the classes at hand. Either may be empty.
              * Either may return Py.NotImplemented.
              */
-            if (smw == BINARY_EMPTY) {
-                if (smv == BINARY_EMPTY) {
+            if (wMH == BINARY_EMPTY) {
+                if (vMH == BINARY_EMPTY) {
                     // Easy case: neither slot was defined. We're done.
                     return op.errorHandle();
                 } else {
                     // smv was the only one defined
-                    resultMH = smv;
+                    resultMH = vMH;
                 }
             } else {
                 // smw was defined
-                smw = permuteArguments(smw, BINOP, 1, 0);
-                if (smv == BINARY_EMPTY) {
+                wMH = permuteArguments(wMH, BINOP, 1, 0);
+                if (vMH == BINARY_EMPTY) {
                     // smw is the only one defined
-                    resultMH = smw;
+                    resultMH = wMH;
                 } else {
                     // Both were defined, so try them in order
-                    resultMH = firstImplementer(smw, smv);
+                    resultMH = firstImplementer(wMH, vMH);
                 }
             }
 

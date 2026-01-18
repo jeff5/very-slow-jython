@@ -2,6 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
+import static java.lang.invoke.MethodHandles.permuteArguments;
 import static uk.co.farowl.vsj4.core.ClassShorthand.T;
 import static uk.co.farowl.vsj4.support.JavaClassShorthand.*;
 
@@ -225,7 +226,7 @@ public enum SpecialMethod {
      * Defines {@code __radd__} with signature {@link Signature#BINARY},
      * the reflected {@code +} operation.
      */
-    op_radd(Signature.BINARY, "+"),
+    op_radd(Signature.BINARY, "+", true),
     /**
      * Defines {@code __add__} with signature {@link Signature#BINARY},
      * the {@code +} operation.
@@ -235,7 +236,7 @@ public enum SpecialMethod {
      * Defines {@code __rsub__} with signature {@link Signature#BINARY},
      * the reflected {@code -} operation.
      */
-    op_rsub(Signature.BINARY, "-"),
+    op_rsub(Signature.BINARY, "-", true),
     /**
      * Defines {@code __sub__} with signature {@link Signature#BINARY},
      * the {@code -} operation.
@@ -245,7 +246,7 @@ public enum SpecialMethod {
      * Defines {@code __rmul__} with signature {@link Signature#BINARY},
      * the reflected {@code *} operation.
      */
-    op_rmul(Signature.BINARY, "*"),
+    op_rmul(Signature.BINARY, "*", true),
     /**
      * Defines {@code __mul__} with signature {@link Signature#BINARY},
      * the {@code *} operation.
@@ -255,7 +256,7 @@ public enum SpecialMethod {
      * Defines {@code __rmod__} with signature {@link Signature#BINARY},
      * the reflected {@code %} operation.
      */
-    op_rmod(Signature.BINARY, "%"),
+    op_rmod(Signature.BINARY, "%", true),
     /**
      * Defines {@code __mod__} with signature {@link Signature#BINARY},
      * the {@code %} operation.
@@ -265,7 +266,7 @@ public enum SpecialMethod {
      * Defines {@code __rdivmod__} with signature
      * {@link Signature#BINARY}, the reflected {@code divmod} operation.
      */
-    op_rdivmod(Signature.BINARY, "divmod()"),
+    op_rdivmod(Signature.BINARY, "divmod()", true),
     /**
      * Defines {@code __divmod__} with signature
      * {@link Signature#BINARY}, the {@code divmod} operation.
@@ -278,7 +279,8 @@ public enum SpecialMethod {
      * infix operation can be reflected).
      */
     op_rpow(Signature.BINARY, // unexplored territory
-            "($self, value, mod=None, /) Return pow(value, self, mod)."),
+            "($self, value, mod=None, /) Return pow(value, self, mod).",
+            true),
     /**
      * Defines {@code __pow__} with signature {@link Signature#TERNARY},
      * the {@code **} operation and built-in {@code pow()}.
@@ -317,7 +319,7 @@ public enum SpecialMethod {
      * Defines {@code __rlshift__} with signature
      * {@link Signature#BINARY}, the reflected {@code <<} operation.
      */
-    op_rlshift(Signature.BINARY, "<<"),
+    op_rlshift(Signature.BINARY, "<<", true),
     /**
      * Defines {@code __lshift__} with signature
      * {@link Signature#BINARY}, the {@code <<} operation.
@@ -327,7 +329,7 @@ public enum SpecialMethod {
      * Defines {@code __rrshift__} with signature
      * {@link Signature#BINARY}, the reflected {@code >>} operation.
      */
-    op_rrshift(Signature.BINARY, ">>"),
+    op_rrshift(Signature.BINARY, ">>", true),
     /**
      * Defines {@code __rshift__} with signature
      * {@link Signature#BINARY}, the {@code >>} operation.
@@ -338,7 +340,7 @@ public enum SpecialMethod {
      * Defines {@code __rand__} with signature {@link Signature#BINARY},
      * the reflected {@code &} operation.
      */
-    op_rand(Signature.BINARY, "&"),
+    op_rand(Signature.BINARY, "&", true),
     /**
      * Defines {@code __and__} with signature {@link Signature#BINARY},
      * the {@code &} operation.
@@ -348,7 +350,7 @@ public enum SpecialMethod {
      * Defines {@code __rxor__} with signature {@link Signature#BINARY},
      * the reflected {@code ^} operation.
      */
-    op_rxor(Signature.BINARY, "^"),
+    op_rxor(Signature.BINARY, "^", true),
     /**
      * Defines {@code __xor__} with signature {@link Signature#BINARY},
      * the {@code ^} operation.
@@ -358,7 +360,7 @@ public enum SpecialMethod {
      * Defines {@code __ror__} with signature {@link Signature#BINARY},
      * the reflected {@code |} operation.
      */
-    op_ror(Signature.BINARY, "|"),
+    op_ror(Signature.BINARY, "|", true),
     /**
      * Defines {@code __or__} with signature {@link Signature#BINARY},
      * the {@code |} operation.
@@ -418,7 +420,7 @@ public enum SpecialMethod {
      * Defines {@code __rfloordiv__} with signature
      * {@link Signature#BINARY}, the reflected {@code //} operation.
      */
-    op_rfloordiv(Signature.BINARY, "//"),
+    op_rfloordiv(Signature.BINARY, "//", true),
     /**
      * Defines {@code __floordiv__} with signature
      * {@link Signature#BINARY}, the {@code //} operation.
@@ -428,7 +430,7 @@ public enum SpecialMethod {
      * Defines {@code __rtruediv__} with signature
      * {@link Signature#BINARY}, the reflected {@code /} operation.
      */
-    op_rtruediv(Signature.BINARY, "/"),
+    op_rtruediv(Signature.BINARY, "/", true),
     /**
      * Defines {@code __truediv__} with signature
      * {@link Signature#BINARY}, the {@code /} operation.
@@ -457,7 +459,7 @@ public enum SpecialMethod {
      * Defines {@code __rmatmul__} with signature
      * {@link Signature#BINARY}, the reflected {@code @} operation.
      */
-    op_rmatmul(Signature.BINARY, "@"),
+    op_rmatmul(Signature.BINARY, "@", true),
     /**
      * Defines {@code __matmul__} with signature
      * {@link Signature#BINARY}, the {@code @} (matrix multiply)
@@ -523,9 +525,16 @@ public enum SpecialMethod {
     final String opName;
 
     /**
+     * Marks that {@code this} is a reflected form of some other
+     * operation, e.g. in {@code op_radd} it is {@code true} because it
+     * is the reflection of {@code op_add}.
+     */
+    public final boolean isreflected;
+
+    /**
      * Indicates the reflected form of an operation, e.g. in
      * {@code op_add} it is {@code op_radd}. It is {@code null}
-     * elsewhere (even the reflected operation).
+     * elsewhere (even in the reflected operation).
      */
     public final SpecialMethod reflected;
 
@@ -593,38 +602,39 @@ public enum SpecialMethod {
      * @param doc basis of documentation string, allows {@code null},
      *     just a symbol like "+", up to full docstring.
      * @param methodName implementation method (e.g. "__add__")
-     * @param alt reflected special method (e.g. "op_radd")
+     * @param reflected the reflected special method (e.g. "op_radd")
+     * @param isreflected if this is a reflected special method
      */
     SpecialMethod(Signature signature, String doc, String methodName,
-            SpecialMethod alt) {
+            SpecialMethod reflected, boolean isreflected) {
         this.signature = signature;
         this.methodName = dunder(methodName);
-        this.reflected = alt;
+        this.isreflected = isreflected;
+        assert reflected == null || reflected.isreflected;
+        this.reflected = reflected;
         // If doc is short, assume it's a symbol. Fall back on name.
         this.opName = (doc != null && doc.length() <= 3) ? doc : name();
         // Make up the docstring from whatever shorthand we got.
         this.doc = docstring(doc);
         this.cache = SMUtil.cacheVH(this);
-        this.generic = SMUtil.slotMH(this);
-        this.bounce =
-                this.cache == null ? generic : SMUtil.bounceMH(this);
+        this.generic = SMUtil.genericMH(this);
+        this.bounce = cache == null ? generic : SMUtil.bounceMH(this);
     }
 
     SpecialMethod(Signature signature) {
-        this(signature, null, null, null);
+        this(signature, null, null, null, false);
     }
 
     SpecialMethod(Signature signature, String doc) {
-        this(signature, doc, null, null);
+        this(signature, doc, null, null, false);
     }
 
-    SpecialMethod(Signature signature, String doc, String methodName) {
-        // XXX Is the method name ever not derived from name()
-        this(signature, doc, methodName, null);
+    SpecialMethod(Signature signature, String doc, boolean reflected) {
+        this(signature, doc, null, null, reflected);
     }
 
     SpecialMethod(Signature signature, String doc, SpecialMethod alt) {
-        this(signature, doc, null, alt);
+        this(signature, doc, null, alt, false);
     }
 
     /**
@@ -645,30 +655,6 @@ public enum SpecialMethod {
             return (MethodHandle)cache.get(rep);
         } else {
             return generic;
-        }
-    }
-
-    /**
-     * Get the {@code MethodHandle} on the implementation of the
-     * "reflected" {@code SpecialMethod}'s operation from the given
-     * representation object. For a binary operation this is the
-     * reflected operation. This will either be directly from the cache
-     * on the representation, or a {@link #generic} handle that calls
-     * {@link #methodName} by look-up on the Python type when invoked.
-     *
-     * @param rep target representation object
-     * @return the reflection of this operation in {@code rep}
-     * @throws NullPointerException if there is no reflection
-     */
-    public MethodHandle reflected(Representation rep)
-            throws NullPointerException {
-        // FIXME: Consider thread safety of cache
-        VarHandle cache = reflected.cache;
-        if (cache != null) {
-            // The handle is cached on the Representation
-            return (MethodHandle)cache.get(rep);
-        } else {
-            return reflected.generic;
         }
     }
 
@@ -967,7 +953,10 @@ public enum SpecialMethod {
 
     /**
      * Set the cache for this {@code SpecialMethod} in the
-     * {@link Representation} to the given {@code MethodHandle}.
+     * {@link Representation} to the given {@code MethodHandle}. In the
+     * case of a (binary) reflected special method (like
+     * {@code __rsub__}), the handle is transformed by swapping its
+     * arguments.
      * <p>
      * If this special method does not have a cache in
      * {@link Representation} objects, this is a no-op, and effectively
@@ -980,7 +969,13 @@ public enum SpecialMethod {
         if (mh == null || !mh.type().equals(getType())) {
             throw handleTypeError(this, mh);
         }
-        if (cache != null) { cache.set(rep, mh); }
+
+        if (cache != null) {
+            if (isreflected) {
+                mh = permuteArguments(mh, Signature.BINARY.type, 1, 0);
+            }
+            cache.set(rep, mh);
+        }
     }
 
     /**
@@ -1092,12 +1087,13 @@ public enum SpecialMethod {
 
         /**
          * The signature {@code (O,O)O}, for example
-         * {@link SpecialMethod#op_add} or
+         * {@link SpecialMethod#op_add}, {@link SpecialMethod#op_lt} or
          * {@link SpecialMethod#op_getitem}.
          *
          */
         // In CPython: binaryfunc
         BINARY(O, O, O),
+
         /**
          * The signature {@code (O,O,O)O}, used for
          * {@link SpecialMethod#op_pow}.
@@ -1363,13 +1359,14 @@ public enum SpecialMethod {
         /**
          * Helper for {@link SpecialMethod} providing a method handle
          * that looks up the special method by name on the type of
-         * {@code self}, and calls the implementation it finds.
+         * {@code self}, and calls the implementation it finds. This
+         * goes into the {@link SpecialMethod#generic} field.
          *
          * @param sm to lookup via the type of {@code self}
          * @return a handle that looks up and calls {@code sm}
          */
         // FIXME Are slot functions all correctly generated?
-        static MethodHandle slotMH(SpecialMethod sm) {
+        static MethodHandle genericMH(SpecialMethod sm) {
 
             /*
              * There are several SpecialMethod.slot() methods. The one
@@ -1398,6 +1395,11 @@ public enum SpecialMethod {
                 MethodHandle call = LOOKUP.findVirtual(sm.getClass(),
                         "slot", slotMT);
                 MethodHandle f = call.bindTo(sm);
+                if (sm.isreflected) {
+                    // Permute the arguments to be (other, self).
+                    assert mt == Signature.BINARY.type;
+                    f = permuteArguments(f, mt, 1, 0);
+                }
                 /*
                  * Explicitly convert the return value by Python rules
                  * if it is boolean or int.
@@ -1420,7 +1422,8 @@ public enum SpecialMethod {
          * Helper for {@link SpecialMethod} providing a method handle on
          * the corresponding trampoline method (e.g.
          * {@link #op_neg(BaseType, Object)}) invokes the special method
-         * cache on the type of {@code self}. We place this type of
+         * cache on the type of {@code self}. This goes into the
+         * {@link SpecialMethod#bounce} field. We place this type of
          * handle in a {@link SharedRepresentation}, and the type is
          * always a {@link ReplaceableType}.
          *
@@ -1727,5 +1730,17 @@ public enum SpecialMethod {
     private static Object op_abs(PyType type, Object self)
             throws Throwable {
         return BaseType.cast(type).op_abs().invokeExact(self);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_add(PyType vType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(vType).op_add().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_radd(PyType wType, Object w, Object v)
+            throws Throwable {
+        return BaseType.cast(wType).op_radd().invokeExact(w, v);
     }
 }

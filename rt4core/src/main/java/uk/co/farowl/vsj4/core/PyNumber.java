@@ -165,6 +165,7 @@ public class PyNumber extends Abstract {
      *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
+    // Compare CPython binary_op in abstract.c
     private static Object binary_op(Object v, Object w,
             SpecialMethod op) throws PyBaseException, Throwable {
         try {
@@ -187,6 +188,7 @@ public class PyNumber extends Abstract {
      * @throws EmptyException when an empty slot is invoked
      * @throws Throwable from the implementation of the operation
      */
+    // Compare CPython binary_op1 in abstract.c
     private static Object binary_op1(Object v, Object w,
             SpecialMethod op) throws EmptyException, Throwable {
 
@@ -196,7 +198,7 @@ public class PyNumber extends Abstract {
 
         Representation wRep = representation(w);
         PyType wType = wRep.pythonType(w);
-        MethodHandle wRA;   // e.g. type(w).__rsub__
+        MethodHandle wRH;   // e.g. type(w).__rsub__
 
         /*
          * CPython would also test: vMH == wRA as an optimisation, but
@@ -216,14 +218,16 @@ public class PyNumber extends Abstract {
                 if (r != Py.NotImplemented) { return r; }
             } catch (EmptyException e) {}
             // Left does not define binop. Try right reflected.
-            wRA = op.reflected(wRep);
-            return wRA.invokeExact(w, v);
+            wRH = op.reflected.handle(wRep);
+            // In the reflected MH, self is the second argument.
+            return wRH.invokeExact(v, w);
 
         } else {
             // Right is sub-type of left: ask first.
-            wRA = op.reflected(wRep);
+            wRH = op.reflected.handle(wRep);
             try {
-                Object r = wRA.invokeExact(w, v);
+                // In the reflected MH, self is the second argument.
+                Object r = wRH.invokeExact(v, w);
                 if (r != Py.NotImplemented) { return r; }
             } catch (EmptyException e) {}
             // Right does not define alt-binop. Try left.
