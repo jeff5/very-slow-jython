@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.PyRT.BinaryOpCallSite;
+import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -398,6 +399,77 @@ class BinaryCallSiteTest extends UnitTestSupport {
                 }
             }
         }
+
+        /**
+         * Invoke a special method call site with inappropriate
+         * arguments expecting a Python {@code TypeError}.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @DisplayName("raises TypeError")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamples")
+        void typeError(String name, String mix,
+                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+
+            Object none = Py.None;
+            PyType MyObj = createType("MyObj");
+            Object badObj = newInstance(MyObj);
+            List<Object> badStuff = List.of(none, badObj);
+
+            // Bootstrap the call site
+            MethodHandle invoker = cs.dynamicInvoker()
+                    .asType(SpecialMethod.Signature.BINARY.type
+                            .changeReturnType(void.class));
+
+            // Invoke for each of the values on the left and right
+            for (Object v : values) {
+                for (Object bad : badStuff) {
+                    assertRaises(PyExc.TypeError,
+                            () -> { invoker.invokeExact(v, bad); });
+                    assertRaises(PyExc.TypeError,
+                            () -> { invoker.invokeExact(bad, v); });
+                }
+            }
+        }
+    }
+
+    /**
+     * Test of numerical operations on float, int and a custom type.
+     */
+    @Nested
+    @DisplayName("encountering built-in and derived types")
+    class NumericTestCustom extends NumericTest {
+        @Override
+        @DisplayName("matches abstract API")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom")
+        void testMatchSpecial(String name, String mix,
+                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testMatchSpecial(name, mix, ref, cs, values);
+        }
+
+        @Override
+        @DisplayName("falls back as expected")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom")
+        void testFallbackCounts(String name, String mix,
+                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.testFallbackCounts(name, mix, ref, cs, values);
+        }
+
+        @Override
+        @DisplayName("raises TypeError")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom")
+        void typeError(String name, String mix,
+                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.typeError(name, mix, ref, cs, values);
+        }
     }
 
     /**
@@ -405,56 +477,8 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * related by inheritance.
      */
     @Nested
-    @DisplayName("encountering built-in and derived types")
-    class NumericTestCustom extends NumericTest {
-        /**
-         * Invoke a special method call site and compare it to the
-         * result from the abstract API for the presented values in
-         * order.
-         *
-         * @throws Throwable unexpectedly
-         */
-        @Override
-        @DisplayName("matches abstract API")
-        @ParameterizedTest(name = "\"{0}\" {1}")
-        @MethodSource("numberExamplesCustom")
-        void testMatchSpecial(String name, String mix,
-                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
-                List<Object> values) throws Throwable {
-            super.testMatchSpecial(name, mix, ref, cs, values);
-        }
-
-        /**
-         * Invoke a special method call site for the presented values in
-         * order, examining fall-back and new specialisations added as
-         * we go along. This is sensitive to the strategy used by the
-         * call site, so as that changes, change the test to match the
-         * intent.
-         *
-         * @throws Throwable unexpectedly
-         */
-        @Override
-        @DisplayName("falls back as expected")
-        @ParameterizedTest(name = "\"{0}\" {1}")
-        @MethodSource("numberExamplesCustom")
-        void testFallbackCounts(String name, String mix,
-                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
-                List<Object> values) throws Throwable {
-            super.testFallbackCounts(name, mix, ref, cs, values);
-        }
-    }
-
-    /** Test of numerical operations on float, int and custom types. */
-    @Nested
     @DisplayName("encountering built-in and two derived types")
     class NumericTestCustom2 extends NumericTest {
-        /**
-         * Invoke a special method call site and compare it to the
-         * result from the abstract API for the presented values in
-         * order.
-         *
-         * @throws Throwable unexpectedly
-         */
         @Override
         @DisplayName("matches abstract API")
         @ParameterizedTest(name = "\"{0}\" {1}")
@@ -465,15 +489,6 @@ class BinaryCallSiteTest extends UnitTestSupport {
             super.testMatchSpecial(name, mix, ref, cs, values);
         }
 
-        /**
-         * Invoke a special method call site for the presented values in
-         * order, examining fall-back and new specialisations added as
-         * we go along. This is sensitive to the strategy used by the
-         * call site, so as that changes, change the test to match the
-         * intent.
-         *
-         * @throws Throwable unexpectedly
-         */
         @Override
         @DisplayName("falls back as expected")
         @ParameterizedTest(name = "\"{0}\" {1}")
@@ -482,6 +497,17 @@ class BinaryCallSiteTest extends UnitTestSupport {
                 ThrowingBinaryFunction ref, BinaryOpCallSite cs,
                 List<Object> values) throws Throwable {
             super.testFallbackCounts(name, mix, ref, cs, values);
+        }
+
+        @Override
+        @DisplayName("raises TypeError")
+        @ParameterizedTest(name = "\"{0}\" {1}")
+        @MethodSource("numberExamplesCustom2")
+        void typeError(String name, String mix,
+                ThrowingBinaryFunction ref, BinaryOpCallSite cs,
+                List<Object> values) throws Throwable {
+            super.typeError(name, mix, ref, cs, values);
+
         }
     }
 }

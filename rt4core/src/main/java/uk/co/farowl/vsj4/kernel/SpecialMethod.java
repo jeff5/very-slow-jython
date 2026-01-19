@@ -2,6 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
+import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static uk.co.farowl.vsj4.core.ClassShorthand.T;
 import static uk.co.farowl.vsj4.support.JavaClassShorthand.*;
@@ -13,6 +14,7 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -21,10 +23,12 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.core.Abstract;
 import uk.co.farowl.vsj4.core.Callables;
 import uk.co.farowl.vsj4.core.ClassShorthand;
+import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyBaseException;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyLong;
+import uk.co.farowl.vsj4.core.PyNotImplemented;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal._PyUtil;
@@ -586,6 +590,21 @@ public enum SpecialMethod {
     public final MethodHandle bounce;
 
     /**
+     * The handle representing this {@code SpecialMethod} when it is not
+     * defined (the cache, if any, is "empty"). The empty handle has the
+     * expected {@code MethodType}. In most cases, invoking the handle
+     * throws {@link EmptyException}. In the case of binary operations
+     * and comparisons (but not {@link #op_getitem}) it is a handle that
+     * returns {@code NotImplemented}.
+     * <p>
+     * The idea of this complication is that, in call sites and the
+     * abstract API, we do not need to be ready to catch
+     * {@link EmptyException} as well as testing for
+     * {@code NotImplemented}, which we must to satisfy Python API.
+     */
+    public final MethodHandle empty;
+
+    /**
      * Throws a {@link PyBaseException TypeError} when invoked (and has
      * the same signature {@link #signature} as the special method
      * itself).
@@ -619,6 +638,14 @@ public enum SpecialMethod {
         this.cache = SMUtil.cacheVH(this);
         this.generic = SMUtil.genericMH(this);
         this.bounce = cache == null ? generic : SMUtil.bounceMH(this);
+        // The definition of "empty" depends on the method
+        MethodHandle e = signature.empty;
+        if (signature == Signature.BINARY) {
+            if (!"__getitem__".equals(this.methodName)) {
+                e = SMUtil.notImplemented;
+            }
+        }
+        this.empty = e;
     }
 
     SpecialMethod(Signature signature) {
@@ -684,13 +711,6 @@ public enum SpecialMethod {
      * @return the invocation type of slots of this name.
      */
     public MethodType getType() { return signature.empty.type(); }
-
-    /**
-     * Get the default that fills the slot when it is "empty".
-     *
-     * @return empty method handle for this type of slot
-     */
-    public MethodHandle getEmpty() { return signature.empty; }
 
     /**
      * Each of the methods called {@code slot(self, ...)} looks up this
@@ -826,7 +846,10 @@ public enum SpecialMethod {
     Object slot(Object self, Object w) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw SMUtil.EMPTY; }
+        if (meth == null) {
+            // May return NotImplemented or throw EmptyException
+            return this.empty.invoke(self, w);
+        }
         // What kind of object did we find? (Could be anything.)
         Representation methRep = Representation.get(meth);
         PyType methType = methRep.pythonType(meth);
@@ -994,14 +1017,13 @@ public enum SpecialMethod {
 
     /**
      * Set the cache for this {@code SpecialMethod} in the
-     * {@link Representation} to empty. The empty cache has the expected
-     * {@code MethodType} but throws {@link EmptyException}.
+     * {@link Representation} to be {@link #empty}. The empty handle has
+     * the expected {@code MethodType} but either throws
+     * {@link EmptyException} or returns {@code NotImplemented}.
      *
      * @param rep target {@code Representation}
      */
-    void setEmpty(Representation rep) {
-        setCache(rep, signature.empty);
-    }
+    void setEmpty(Representation rep) { setCache(rep, this.empty); }
 
     @Override
     public java.lang.String toString() {
@@ -1306,13 +1328,25 @@ public enum SpecialMethod {
          */
         static final MethodHandle asJavaBoolean;
 
+        /**
+         * Method handle on a function returning
+         * {@link PyNotImplemented}, which binary operations and
+         * comparison operations use instead of {@link Signature#empty}.
+         */
+        static final MethodHandle notImplemented;
+
         static {
             try {
                 asJavaInt = LOOKUP.findStatic(PyLong.class, "asInt",
                         MethodType.methodType(I, O));
                 asJavaBoolean = LOOKUP.findStatic(Abstract.class,
                         "isTrue", MethodType.methodType(B, O));
-            } catch (NoSuchMethodException | IllegalAccessException e) {
+                MethodHandle ni = LOOKUP.findStaticGetter(Py.class,
+                        "NotImplemented", PyNotImplemented.class);
+                notImplemented = dropArguments(ni, 0, List.of(O, O))
+                        .asType(Signature.BINARY.type);
+            } catch (NoSuchMethodException | NoSuchFieldException
+                    | IllegalAccessException e) {
                 // Handle lookup fails somewhere
                 throw new InterpreterError(e,
                         "Failed to initialise SpecialMethod.SMUtil.");

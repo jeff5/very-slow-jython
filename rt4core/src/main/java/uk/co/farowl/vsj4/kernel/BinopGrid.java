@@ -128,7 +128,7 @@ public class BinopGrid {
         if (i >= 0 && j >= 0) {
             return mh[i][j];
         } else {
-            return sm.getEmpty();
+            return sm.empty;
         }
     }
 

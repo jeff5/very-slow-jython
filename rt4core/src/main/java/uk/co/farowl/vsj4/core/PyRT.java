@@ -295,16 +295,17 @@ public class PyRT {
 
         /**
          * The number of times this site has used
-         * {@link #fallback(Object) fallback}, used to observe internal
-         * working and potentially for de-optimisation decisions.
+         * {@link #fallback(Object, Object) fallback}, used to observe
+         * internal working and potentially for de-optimisation
+         * decisions.
          */
         int fallbackCount;
 
         /**
          * The number of guarded invocations cached in the target of
-         * this site by {@link #fallback(Object) fallback}, used to
-         * observe internal working and potentially for de-optimisation
-         * decisions.
+         * this site by {@link #fallback(Object, Object) fallback}, used
+         * to observe internal working and potentially for
+         * de-optimisation decisions.
          */
         int chainLength;
 
@@ -334,7 +335,6 @@ public class PyRT {
          */
         @SuppressWarnings("unused")
         private Object fallback(Object v, Object w) throws Throwable {
-            // TODO binary call site with shared representations
 
             fallbackCount += 1;
 
@@ -353,12 +353,12 @@ public class PyRT {
 
             // A Python binary op consults both types in the pattern:
             // if (wType == vType) {
-            // ... ask v.op only
+            // ... try v.op only
             // } else {
             // if (wType.isSubTypeOf(vType)) {
-            // ... ask w.rop then v.op
+            // ... try w.rop then v.op
             // } else {
-            // ... ask v.op then w.rop
+            // ... try v.op then w.rop
             // }}
             /*
              * We create a method handle, to guard with a pair of
@@ -386,7 +386,7 @@ public class PyRT {
                 } else {
                     // class(w) fixes type(w).
                     vMH = op.handle(vRep);      // = op.bounce
-                    if ((wRH = rop.handle(wType)) == BINARY_EMPTY) {
+                    if ((wRH = rop.handle(wType)) == rop.empty) { // XXX
                         // We need only consider vMH.
                         mh = vMH;
                     } else {
@@ -404,8 +404,7 @@ public class PyRT {
                 // class(v) fixes type(v).
                 // class(w) does not fix type(w).
                 wRH = rop.handle(wRep);     // = op.bounce
-                // wRH = permuteArguments(wRH, BINOP, 1, 0);
-                if ((vMH = op.handle(vRep)) == BINARY_EMPTY) {
+                if ((vMH = op.handle(vRep)) == op.empty) { // XXX
                     // We need only consider wRH
                     mh = wRH;
                 } else {
@@ -463,37 +462,37 @@ public class PyRT {
              * directly.
              */
             MethodHandle vMH, wRH;
+            Object r; // To return
 
             if (wType == vType) {
                 // Same types so only try v.op(w).
                 vMH = op.handle(vType);
-                return vMH.invokeExact(v, w);
+                r = vMH.invokeExact(v, w);
 
-            } else {
-                if (wType.isSubTypeOf(vType)) {
-                    // type(w) is sub-type of type(v). Try w.rop(v).
-                    wRH = rop.handle(wType);
-                    try {
-                        // In the reflected MH, self is second.
-                        Object r = wRH.invokeExact(v, w);
-                        if (r != Py.NotImplemented) { return r; }
-                    } catch (EmptyException e) {}
+            } else if (wType.isSubTypeOf(vType)) {
+                // type(w) is sub-type of type(v). Try w.rop(v).
+                wRH = rop.handle(wType);
+                // In the reflected MH, self is second.
+                r = wRH.invokeExact(v, w);
+                if (r == Py.NotImplemented) {
                     // type(w) does not define w.rop. Try v.op.
                     vMH = op.handle(vType);
-                    return vMH.invokeExact(v, w);
-                } else {
-                    // Try v.op(w) first.
-                    vMH = op.handle(vType);
-                    try {
-                        Object r = vMH.invokeExact(v, w);
-                        if (r != Py.NotImplemented) { return r; }
-                    } catch (EmptyException e) {}
+                    r = vMH.invokeExact(v, w);
+                }
+            } else {
+                // Try v.op(w) first.
+                vMH = op.handle(vType);
+                r = vMH.invokeExact(v, w);
+                if (r != Py.NotImplemented) {
                     // type(v) does not define v.op. Try w.rop(v).
                     wRH = rop.handle(wType);
                     // In the reflected MH, self is second.
-                    return wRH.invokeExact(v, w);
+                    r = wRH.invokeExact(v, w);
                 }
             }
+
+            if (r == Py.NotImplemented) { throw op.operandError(v, w); }
+            return r;
         }
 
         /**
@@ -508,7 +507,7 @@ public class PyRT {
          * @return {@code op(v, w)}
          * @throws Throwable on errors or if not implemented
          */
-         private Object fallback_saved(Object v, Object w)
+        private Object fallback_saved(Object v, Object w)
                 throws Throwable {
             // TODO binary call site with shared representations
             /*

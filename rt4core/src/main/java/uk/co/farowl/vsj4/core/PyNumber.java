@@ -154,8 +154,9 @@ public class PyNumber extends Abstract {
     }
 
     /**
-     * Helper for implementing a binary operation that has one,
-     * slot-based interpretation.
+     * Helper for implementing binary operation. If neither the left
+     * type nor the right type implements the operation, it will raise
+     * {@link PyExc#TypeError TypeError}.
      *
      * @param v left operand
      * @param w right operand
@@ -165,32 +166,9 @@ public class PyNumber extends Abstract {
      *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
-    // Compare CPython binary_op in abstract.c
+    // Compare CPython binary_op and binary_op1 in abstract.c
     private static Object binary_op(Object v, Object w,
             SpecialMethod op) throws PyBaseException, Throwable {
-        try {
-            Object r = binary_op1(v, w, op);
-            if (r != Py.NotImplemented) { return r; }
-        } catch (EmptyException e) {}
-        throw op.operandError(v, w);
-    }
-
-    /**
-     * Helper for implementing binary operation. If neither the left
-     * type nor the right type implements the operation, it will either
-     * return {@link Py#NotImplemented} or throw {@link EmptyException}.
-     * Both mean the same thing.
-     *
-     * @param v left operand
-     * @param w right operand
-     * @param op operation to apply
-     * @return result or {@code Py.NotImplemented}
-     * @throws EmptyException when an empty slot is invoked
-     * @throws Throwable from the implementation of the operation
-     */
-    // Compare CPython binary_op1 in abstract.c
-    private static Object binary_op1(Object v, Object w,
-            SpecialMethod op) throws EmptyException, Throwable {
 
         Representation vRep = representation(v);
         PyType vType = vRep.pythonType(v);
@@ -198,42 +176,40 @@ public class PyNumber extends Abstract {
 
         Representation wRep = representation(w);
         PyType wType = wRep.pythonType(w);
-        MethodHandle wRH;   // e.g. type(w).__rsub__
+        MethodHandle wRH;   // e.g. type(w).__rsub__ (permuted)
 
-        /*
-         * CPython would also test: vMH == wRA as an optimisation, but
-         * that's never the case since we always use distinct __op__ and
-         * __rop__ methods. (Well, hardly ever: __eq__?)
-         */
+        Object r;   // will hold the result
+
         if (wType == vType) {
             // Same types so only one type to ask.
             vMH = op.handle(vRep);
-            return vMH.invokeExact(v, w);
+            r = vMH.invokeExact(v, w);
 
-        } else if (!wType.isSubTypeOf(vType)) {
-            // Ask left type then right.
-            vMH = op.handle(vRep);
-            try {
-                Object r = vMH.invokeExact(v, w);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
-            // Left does not define binop. Try right reflected.
-            wRH = op.reflected.handle(wRep);
-            // In the reflected MH, self is the second argument.
-            return wRH.invokeExact(v, w);
-
-        } else {
+        } else if (wType.isSubTypeOf(vType)) {
             // Right is sub-type of left: ask first.
             wRH = op.reflected.handle(wRep);
-            try {
-                // In the reflected MH, self is the second argument.
-                Object r = wRH.invokeExact(v, w);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
-            // Right does not define alt-binop. Try left.
+            // In the reflected MH, self is the second argument.
+            r = wRH.invokeExact(v, w);
+            if (r == Py.NotImplemented) {
+                // Right does not define reflected op. Try left.
+                vMH = op.handle(vRep);
+                r = vMH.invokeExact(v, w);
+            }
+
+        } else {
+            // Ask left type then right.
             vMH = op.handle(vRep);
-            return vMH.invokeExact(v, w);
+            r = vMH.invokeExact(v, w);
+            if (r == Py.NotImplemented) {
+                // Left does not define op. Try right reflected.
+                wRH = op.reflected.handle(wRep);
+                // In the reflected MH, self is the second argument.
+                r = wRH.invokeExact(v, w);
+            }
         }
+
+        if (r == Py.NotImplemented) { throw op.operandError(v, w); }
+        return r;
     }
 
     /**
