@@ -30,9 +30,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.PyRT.BinaryOpCallSite;
+import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.TypeFlag;
 
 /**
  * Test of the mechanism for invoking and updating binary call sites on
@@ -344,6 +347,8 @@ class BinaryCallSiteTest extends UnitTestSupport {
             }
         }
 
+        private record ClassPair(Class<?> vClass, Class<?> wClass) {}
+
         /**
          * Invoke a special method call site for the presented values in
          * order, examining fall-back and new specialisations added as
@@ -361,12 +366,14 @@ class BinaryCallSiteTest extends UnitTestSupport {
                 List<Object> values) throws Throwable {
 
             MethodHandle invoker = cs.dynamicInvoker();
+            SpecialMethod op = cs.op;
+            SpecialMethod rop = cs.rop;
 
             /*
              * Track the classes that (we think) are cached in the call
              * site's handle chain.
              */
-            Set<Class<?>> cached = new HashSet<>();
+            Set<ClassPair> chain = new HashSet<>();
             int lastCount = 0;
 
             // Invoke for each of the values
@@ -376,25 +383,39 @@ class BinaryCallSiteTest extends UnitTestSupport {
                     @SuppressWarnings("unused")
                     Object r = invoker.invokeExact(v, w);
 
-                    if (!cached.contains(v.getClass())) {
-                        // Uncached class so should have called
-                        // fallback.
+                    Class<?> vClass = v.getClass();
+                    Representation vRep = Abstract.representation(v);
+                    BaseType vType = vRep.pythonType(v);
+                    MethodHandle vMH = op.handle(vRep);
+
+                    Class<?> wClass = w.getClass();
+                    Representation wRep = Abstract.representation(w);
+                    BaseType wType = wRep.pythonType(w);
+                    MethodHandle wRH = rop.handle(wRep);
+
+                    ClassPair pair = new ClassPair(vClass, wClass);
+                    if (!chain.contains(pair)) {
+                        // Uncached class: should have called fallback.
                         lastCount += 1;
                     }
                     assertEquals(lastCount, cs.fallbackCount,
                             "fallback calls");
 
                     /*
-                     * If the site is not full and the inner
-                     * SpecialMethod is a cached type, it should have
-                     * been added to the chain.
+                     * If the site is not full the handle might have
+                     * been added to the chain. The rules for this may
+                     * be somewhat complicated/fluid.
                      */
-                    if (cached.size() < BinaryOpCallSite.MAX_CHAIN) {
-                        if (cs.op.hasCache()) {
-                            cached.add(v.getClass());
-                        }
+                    if (chain.size() >= BinaryOpCallSite.MAX_CHAIN) {
+                        // Don't embed.
+                    } else if (vType.hasFeature(TypeFlag.REPLACEABLE)
+                            && wType.hasFeature(TypeFlag.REPLACEABLE)) {
+                        // Don't embed.
+                    } else {
+                        chain.add(pair);
                     }
-                    assertEquals(cached.size(), cs.chainLength,
+
+                    assertEquals(chain.size(), cs.chainLength,
                             "chain length");
                 }
             }

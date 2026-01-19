@@ -1263,9 +1263,7 @@ public abstract sealed class BaseType extends KernelType implements
             List<Representation> reps = representations();
             if (this instanceof ReplaceableType) {
                 assert reps.get(0) instanceof SharedRepresentation;
-                // The cache delegates to the type (always).
-                assert sm.handle(reps.get(0)) == sm.bounce;
-                // So we update the type object itself.
+                // Update the type object itself.
                 reps = List.of(this);
             }
             updateSpecialMethodCache(sm, result, reps);

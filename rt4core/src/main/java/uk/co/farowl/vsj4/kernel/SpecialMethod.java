@@ -629,6 +629,7 @@ public enum SpecialMethod {
         this.signature = signature;
         this.methodName = dunder(methodName);
         this.isreflected = isreflected;
+        // Cannot be a reflected method and have a reflection
         assert reflected == null || reflected.isreflected;
         this.reflected = reflected;
         // If doc is short, assume it's a symbol. Fall back on name.
@@ -979,7 +980,9 @@ public enum SpecialMethod {
      * {@link Representation} to the given {@code MethodHandle}. In the
      * case of a (binary) reflected special method (like
      * {@code __rsub__}), the handle is transformed by swapping its
-     * arguments.
+     * arguments. This is the correct thing to so when the handle is on
+     * a method definition, because wherever we invoke a reflected
+     * handle, we do so with the receiver ({@code self}) second.
      * <p>
      * If this special method does not have a cache in
      * {@link Representation} objects, this is a no-op, and effectively
@@ -1013,7 +1016,7 @@ public enum SpecialMethod {
      *
      * @param rep target {@code Representation}
      */
-    void setGeneric(Representation rep) { setCache(rep, generic); }
+    void setGeneric(Representation rep) { cache.set(rep, generic); }
 
     /**
      * Set the cache for this {@code SpecialMethod} in the
@@ -1023,7 +1026,19 @@ public enum SpecialMethod {
      *
      * @param rep target {@code Representation}
      */
-    void setEmpty(Representation rep) { setCache(rep, this.empty); }
+    void setEmpty(Representation rep) { cache.set(rep, empty); }
+
+    /**
+     * Set the cache for this {@code SpecialMethod} in the
+     * {@link Representation} to be {@link #bounce}. The bounce handle
+     * invokes the corresponding special method cache on the type
+     * object.
+     *
+     * @param rep target {@code Representation}
+     */
+    void setBounce(SharedRepresentation rep) {
+        cache.set(rep, bounce);
+    }
 
     @Override
     public java.lang.String toString() {
@@ -1468,6 +1483,9 @@ public enum SpecialMethod {
 
             // We aim to create:
             // bounce = λ(s, ...): trampoline(sm)(type(s), s, ...)
+            // or for a *reflected* binary operation:
+            // bounce = λ(v, w): trampoline(sm)(type(w), v, w)
+            // because we shall call it with the receiver second.
             try {
                 /*
                  * Find the trampoline method handle smt. The signature
@@ -1493,6 +1511,11 @@ public enum SpecialMethod {
                 type = type.asType(MethodType.methodType(T, O));
 
                 // bounce = λ(s,...): smt(type(s),s,...)
+                // or bounce = λ(v,w): smt(type(w),v,w)
+                if (sm.isreflected) {
+                    // type = λ(v,w): type(w)
+                    type = MethodHandles.dropArguments(type, 0, O);
+                }
                 MethodHandle bounce =
                         MethodHandles.foldArguments(smt, type);
 
@@ -1773,8 +1796,20 @@ public enum SpecialMethod {
     }
 
     @SuppressWarnings("unused")
-    private static Object op_radd(PyType wType, Object w, Object v)
+    private static Object op_radd(PyType wType, Object v, Object w)
             throws Throwable {
-        return BaseType.cast(wType).op_radd().invokeExact(w, v);
+        return BaseType.cast(wType).op_radd().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_sub(PyType vType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(vType).op_sub().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_rsub(PyType wType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(wType).op_rsub().invokeExact(v, w);
     }
 }

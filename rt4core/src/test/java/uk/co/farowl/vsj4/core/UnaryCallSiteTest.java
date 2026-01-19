@@ -366,7 +366,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
              * Track the classes that (we think) are cached in the call
              * site's handle chain.
              */
-            Set<Class<?>> cached = new HashSet<>();
+            Set<Class<?>> chain = new HashSet<>();
             int lastCount = 0;
 
             // Invoke for each of the values
@@ -375,7 +375,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
                 @SuppressWarnings("unused")
                 Object r = invoker.invokeExact(x);
 
-                if (!cached.contains(x.getClass())) {
+                if (!chain.contains(x.getClass())) {
                     // Uncached class so should have called fallback.
                     lastCount += 1;
                 }
@@ -387,10 +387,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
                  * is a cached type, it should have been added to the
                  * chain.
                  */
-                if (cached.size() < UnaryOpCallSite.MAX_CHAIN) {
-                    if (cs.op.hasCache()) { cached.add(x.getClass()); }
+                if (chain.size() < UnaryOpCallSite.MAX_CHAIN) {
+                    if (cs.op.hasCache()) { chain.add(x.getClass()); }
                 }
-                assertEquals(cached.size(), cs.chainLength,
+                assertEquals(chain.size(), cs.chainLength,
                         "chain length");
             }
         }

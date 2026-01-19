@@ -31,7 +31,7 @@ class SharedRepresentation extends Representation {
         for (SpecialMethod sm : SpecialMethod.values()) {
             if (sm.hasCache()) {
                 // Cache bounces decision to the type.
-                sm.setCache(this, sm.bounce);
+                sm.setBounce(this);
             }
         }
     }

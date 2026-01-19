@@ -664,10 +664,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __rsub__} with signature
      *     {@link Signature#BINARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_rsub() {
-        return SpecialMethod.op_rsub.generic;
-    }
+    public MethodHandle op_rsub() { return op_rsub; }
+
+    private MethodHandle op_rsub;
 
     /**
      * Return a matching implementation of {@code __sub__} with
@@ -676,10 +675,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __sub__} with signature
      *     {@link Signature#BINARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_sub() {
-        return SpecialMethod.op_sub.generic;
-    }
+    public MethodHandle op_sub() { return op_sub; }
+
+    private MethodHandle op_sub;
 
     /**
      * Return a matching implementation of {@code __rmul__} with

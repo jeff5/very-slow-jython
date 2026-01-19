@@ -321,6 +321,13 @@ public class PyRT {
             setTarget(fallbackMH.bindTo(this));
         }
 
+        @Override
+        public String toString() {
+            return String.format(
+                    "BinaryOpCallSite[%s fallbacks=%s chain=%s]",
+                    op.name(), fallbackCount, chainLength);
+        }
+
         /**
          * Compute the result of the call for this particular pair of
          * arguments, and update the site to do this efficiently for the
@@ -371,22 +378,18 @@ public class PyRT {
                 // class(v) does not fix type(v).
                 if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
                     // class(w) does not fix type(w).
-                    try {
-                        /*
-                         * It is complex to create a "double bounce"
-                         * handle so we compute the answer but do not
-                         * cache the method.
-                         */
-                        Object r = dynamicResult(vType, v, wType, w);
-                        if (r != Py.NotImplemented) { return r; }
-                    } catch (EmptyException e) {}
-                    // Empty or r=NotImplemented
-                    throw op.operandError(v, w);
+                    /*
+                     * Both vMH and wRH would be bounce handles. We
+                     * currently hypothesise that it is not worth
+                     * updating the call site with such a combination:
+                     * rather just go for the answer.
+                     */
+                    return dynamicResult(vType, v, wType, w);
 
                 } else {
                     // class(w) fixes type(w).
                     vMH = op.handle(vRep);      // = op.bounce
-                    if ((wRH = rop.handle(wType)) == rop.empty) { // XXX
+                    if ((wRH = rop.handle(wRep)) == rop.empty) {
                         // We need only consider vMH.
                         mh = vMH;
                     } else {
@@ -404,7 +407,7 @@ public class PyRT {
                 // class(v) fixes type(v).
                 // class(w) does not fix type(w).
                 wRH = rop.handle(wRep);     // = op.bounce
-                if ((vMH = op.handle(vRep)) == op.empty) { // XXX
+                if ((vMH = op.handle(vRep)) == op.empty) {
                     // We need only consider wRH
                     mh = wRH;
                 } else {
@@ -425,31 +428,46 @@ public class PyRT {
                 // class(v) fixes type(v).
                 // class(w) fixes type(w).
                 vMH = op.handle(vRep);
-                if (vType == wType) {
-                    // We need only consider vMH
+                if (vType == wType
+                        || (wRH = rop.handle(wRep)) == rop.empty) {
+                    // We need only consider vMH (even if empty)
                     mh = vMH;
+                } else if (vMH == op.empty) {
+                    // We need only consider wRH
+                    mh = wRH;
+                } else if (wType.isSubTypeOf(vType)) {
+                    // Try w.rop(v),then v.rop(w).
+                    mh = firstImplementer(wRH, vMH);
                 } else {
-                    wRH = rop.handle(wRep);
-                    if (wType.isSubTypeOf(vType)) {
-                        // Try w.rop(v),then v.rop(w).
-                        mh = firstImplementer(wRH, vMH);
-                    } else {
-                        // Try v.op(w) then w.rop(v)
-                        mh = firstImplementer(vMH, wRH);
-                    }
+                    // Try v.op(w) then w.rop(v)
+                    mh = firstImplementer(vMH, wRH);
                 }
             }
 
-            // MH for guarded invocation (becomes new target)
-            // guardMH = insertArguments(CLASS2_GUARD, 0, vClass,
-            // wClass);
-            // targetMH = guardWithTest(guardMH, mh, getTarget());
-            // setTarget(targetMH);
-            // chainLength += 1;
+            // Convert a final NotImplemented into an error
+            mh = firstImplementer(mh, op.errorHandle());
 
-            MethodHandle resultMH =
-                    firstImplementer(mh, op.errorHandle());
-            return resultMH.invokeExact(v, w);
+            /*
+             * If the composite handle throws, it throws here and we do
+             * not bind a new target. If it's a value-dependent one-off,
+             * we'll get another go.
+             */
+            Object r = mh.invokeExact(v, w);
+
+            /*
+             * Decide whether to embed the composite handle in the
+             * target of the site.
+             */
+            if (chainLength < MAX_CHAIN) {
+                // MH for guarded invocation (becomes new target)
+                guardMH = insertArguments(CLASS2_GUARD, 0, vClass,
+                        wClass);
+                targetMH = guardWithTest(guardMH, mh, getTarget());
+                setTarget(targetMH);
+                chainLength += 1;
+            }
+
+            return r;
         }
 
         private Object dynamicResult(BaseType vType, Object v,
