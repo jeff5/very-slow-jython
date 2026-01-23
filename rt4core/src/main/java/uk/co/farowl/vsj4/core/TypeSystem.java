@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -260,6 +260,12 @@ class TypeSystem {
         BootstrapSpec(String name, Lookup lookup, Class<?> primary) {
             super(name, lookup, false);
             this.primary(primary).add(Feature.IMMUTABLE);
+        }
+
+        @Override
+        public BootstrapSpec binopImpl(Class<?> binopClass) {
+            super.binopImpl(binopClass);
+            return this;
         }
     }
 

@@ -362,19 +362,4 @@ public abstract class KernelType extends Representation
      */
     @SuppressWarnings("static-method")
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
-
-    /**
-     * Get an object in which to look up handles for the implementations
-     * of a given binary operation specialised to particular
-     * combinations of argument types. These may have been provided as a
-     * supplementary implementation class during specification.
-     *
-     * @param binop for which the grid is required
-     * @return the grid for {@code binop} or {@code null}
-     */
-    @SuppressWarnings("static-method")
-    public BinopGrid getBinopGrid(SpecialMethod binop) {
-        // Only AdoptiveType implements this
-        return null;
-    }
 }

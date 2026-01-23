@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -98,6 +98,12 @@ public class TypeFactory {
      */
     private final Registry registry;
 
+    /**
+     * Binary operations indexed by (unreflected) operation and operand
+     * classes.
+     */
+    private final BinopTable binops;
+
     /** The workshop for the factory. */
     private final Workshop workshop;
 
@@ -154,6 +160,7 @@ public class TypeFactory {
         logger.info("Type factory being created.");
 
         this.registry = new Registry();
+        this.binops = new BinopTable();
         this.workshop = new Workshop();
 
         /*
@@ -280,6 +287,14 @@ public class TypeFactory {
      * @return the registry
      */
     public TypeRegistry getRegistry() { return registry; }
+
+    /**
+     * Return the binary operations indexed by (unreflected) operation
+     * and operand classes with which we accelerate call sites.
+     *
+     * @return the binary operations table
+     */
+    public BinopTable getBinops() { return binops; }
 
     /**
      * Inner class to the factory that implements the registry
@@ -1040,6 +1055,15 @@ public class TypeFactory {
                  * in the exposer.
                  */
                 type.populateDict(exposer, spec);
+
+                /*
+                 * Add entries for the accelerated binary operations to
+                 * the global table from the definitions.
+                 */
+                Class<?> binopClass = spec.getBinopClass();
+                if (binopClass != null) {
+                    binops.addFromSpec(type, spec);
+                }
 
                 // Discover the Java constructors
                 type.fillConstructorLookup(spec);

@@ -687,6 +687,28 @@ public enum SpecialMethod {
     }
 
     /**
+     * For a binary operation, return the reflected (or original)
+     * operation, otherwise return the operation itself. The forward
+     * binary operations (not comparisons) contain a member that points
+     * to their reflected operation, e.g. {@code op_add.reflected} is
+     * {@code op_radd}. However, the reflected operations do not point
+     * back.
+     * <p>
+     * The purpose of this method is to supply the complete data:
+     * {@code op_add.unreflected()} is {@code op_radd} and
+     * {@code op_radd.unreflected()} is {@code op_add}. We also answer
+     * for the comparison operation opposites:
+     * {@code op_lt.unreflected()} is {@code op_gt}, and so on. Finally,
+     * for all other special methods, the unreflected version is itself,
+     * {@code sm.unreflected()} is {@code sm}.
+     *
+     * @return the reflected, unreflected or complementary operation
+     */
+    public SpecialMethod unreflected() {
+        return MethodNameLookup.unreflect[ordinal()];
+    }
+
+    /**
      * Lookup by method name, returning {@code null} if it is not a
      * recognised name for any slot.
      *
@@ -1307,11 +1329,14 @@ public enum SpecialMethod {
          */
 
         /**
-         * Logger for {@code SpecialMethod} operations. Although we
-         * believe what SLF4J say about their logging being lightweight
-         * at levels not enabled, some of our operations are so critical
-         * to performance that we keep logging for initialisation
-         * methods (unless debugging).
+         * Logger for building {@code SpecialMethod} support structures
+         * for special methods. Thought it was just an ordinary
+         * {@code enum}? Think again.
+         * <p>
+         * Although we believe what SLF4J say about their logging being
+         * lightweight at levels not enabled, some of our operations are
+         * so critical to performance that we keep logging for
+         * initialisation methods (unless debugging).
          */
         final static Logger logger =
                 LoggerFactory.getLogger(SpecialMethod.class);
@@ -1674,13 +1699,15 @@ public enum SpecialMethod {
     private static class MethodNameLookup {
         /** Lookup from name to {@code SpecialMethod}. */
         static final Map<String, SpecialMethod> table;
+        static final SpecialMethod[] unreflect;
 
         static {
             SpecialMethod[] methods = SpecialMethod.values();
             HashMap<String, SpecialMethod> t =
                     new HashMap<>(2 * methods.length);
+            // Build table mapping name to operation
             for (SpecialMethod s : methods) {
-                // Add to table
+                // Add to name lookup table
                 t.put(s.methodName, s);
                 // This is a good time to confirm initialisation
                 SMUtil.logger.atTrace()
@@ -1693,7 +1720,29 @@ public enum SpecialMethod {
                 SMUtil.logger.atTrace()
                         .log(() -> s.doc.replace("\n", "\\n"));
             }
+            // Make table unmodifiable
             table = Collections.unmodifiableMap(t);
+
+            // Build table reflected operation to unreflected
+            unreflect = new SpecialMethod[methods.length];
+            for (SpecialMethod s : methods) {
+                // Add to (un)reflected operations table
+                SpecialMethod r = s.reflected;
+                if (r != null) {
+                    // E.g. (s,r) == (op_add, op_radd)
+                    assert r.isreflected;
+                    unreflect[r.ordinal()] = s;
+                    unreflect[s.ordinal()] = r;
+                } else if (!s.isreflected) {
+                    // Other things are themselves
+                    unreflect[s.ordinal()] = s;
+                }
+            }
+            // Except for these special cases:
+            unreflect[op_lt.ordinal()] = op_gt;
+            unreflect[op_le.ordinal()] = op_ge;
+            unreflect[op_ge.ordinal()] = op_le;
+            unreflect[op_gt.ordinal()] = op_lt;
         }
     }
 
