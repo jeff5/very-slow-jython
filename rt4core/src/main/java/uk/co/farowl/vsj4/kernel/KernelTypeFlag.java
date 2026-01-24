@@ -138,7 +138,13 @@ public enum KernelTypeFlag {
     HAS_DELETE,
     /** The type defines {@code __init__}. */
     // No equivalent in CPython
-    HAS_INIT;
+    HAS_INIT,
+    /**
+     * The type defines specialised binary operations through the
+     * {@link BinopTable}.
+     */
+    // No equivalent in CPython
+    BINOP_TABLE;
 
     /**
      * {@code KernelTypeFlag}s inherited from the base type when

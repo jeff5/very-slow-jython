@@ -367,7 +367,7 @@ class BinaryCallSiteTest extends UnitTestSupport {
 
             MethodHandle invoker = cs.dynamicInvoker();
             SpecialMethod op = cs.op;
-            SpecialMethod rop = cs.rop;
+            SpecialMethod rop = cs.op.reflected;
 
             /*
              * Track the classes that (we think) are cached in the call

@@ -15,7 +15,7 @@ import java.lang.invoke.MutableCallSite;
 
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
-import uk.co.farowl.vsj4.kernel.BinopGrid;
+import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.TypeRegistry;
@@ -286,8 +286,6 @@ public class PyRT {
 
         /** The {@link SpecialMethod} to be applied by the site. */
         final SpecialMethod op;
-        /** The reflected {@link SpecialMethod} to be applied. */
-        final SpecialMethod rop;
 
         /**
          * The number of times this site has used
@@ -313,7 +311,6 @@ public class PyRT {
         public BinaryOpCallSite(SpecialMethod op) {
             super(BINOP);
             this.op = op;
-            this.rop = op.reflected;
             setTarget(fallbackMH.bindTo(this));
         }
 
@@ -351,9 +348,6 @@ public class PyRT {
             BaseType wType = wRep.pythonType(w);
             MethodHandle wRH;   // e.g. type(w).__rsub__
 
-            MethodHandle mh, targetMH, guardMH;
-            Object result;
-
             // A Python binary op consults both types in the pattern:
             // if (wType == vType) {
             // ... try v.op only
@@ -369,6 +363,8 @@ public class PyRT {
              * succeed. This choice depends on whether each class is a
              * shared representation.
              */
+            MethodHandle mh, targetMH, guardMH;
+            Object result;
 
             if (vType.hasFeature(TypeFlag.REPLACEABLE)) {
                 // class(v) does not fix type(v).
@@ -385,6 +381,7 @@ public class PyRT {
                 } else {
                     // class(w) fixes type(w).
                     vMH = op.handle(vRep);      // = op.bounce
+                    SpecialMethod rop = op.reflected;
                     if ((wRH = rop.handle(wRep)) == rop.empty) {
                         // We need only consider vMH.
                         mh = vMH;
@@ -397,12 +394,14 @@ public class PyRT {
                          */
                         mh = firstImplementer(vMH, wRH);
                     }
+                    // Convert a final NotImplemented into an error
+                    mh = firstImplementer(mh, op.errorHandle());
                 }
 
             } else if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
                 // class(v) fixes type(v).
                 // class(w) does not fix type(w).
-                wRH = rop.handle(wRep);     // = op.bounce
+                wRH = op.reflected.handle(wRep);     // = op.bounce
                 if ((vMH = op.handle(vRep)) == op.empty) {
                     // We need only consider wRH
                     mh = wRH;
@@ -419,29 +418,45 @@ public class PyRT {
                         mh = firstImplementer(vMH, wRH);
                     }
                 }
+                // Convert a final NotImplemented into an error
+                mh = firstImplementer(mh, op.errorHandle());
 
             } else {
                 // class(v) fixes type(v).
                 // class(w) fixes type(w).
-                vMH = op.handle(vRep);
-                if (vType == wType
-                        || (wRH = rop.handle(wRep)) == rop.empty) {
-                    // We need only consider vMH (even if empty)
-                    mh = vMH;
-                } else if (vMH == op.empty) {
-                    // We need only consider wRH
-                    mh = wRH;
-                } else if (wType.isSubTypeOf(vType)) {
-                    // Try w.rop(v),then v.rop(w).
-                    mh = firstImplementer(wRH, vMH);
+                MethodHandle binopMH;
+                if (vType.hasFeature(KernelTypeFlag.BINOP_TABLE)
+                        && wType.hasFeature(KernelTypeFlag.BINOP_TABLE)
+                        && (binopMH = TypeSystem.binaryOperations
+                                .get(op, vClass, wClass)) != null) {
+                    /*
+                     * Specialisations are not allowed to return
+                     * NotImplemented, so we do not need to wrap them in
+                     * firstImplementer.
+                     */
+                    mh = binopMH;
                 } else {
-                    // Try v.op(w) then w.rop(v)
-                    mh = firstImplementer(vMH, wRH);
+                    // No specialisation defined
+                    vMH = op.handle(vRep);
+                    SpecialMethod rop = op.reflected;
+                    if (vType == wType
+                            || (wRH = rop.handle(wRep)) == rop.empty) {
+                        // We need only consider vMH (even if empty)
+                        mh = vMH;
+                    } else if (vMH == op.empty) {
+                        // We need only consider wRH
+                        mh = wRH;
+                    } else if (wType.isSubTypeOf(vType)) {
+                        // Try w.rop(v),then v.rop(w).
+                        mh = firstImplementer(wRH, vMH);
+                    } else {
+                        // Try v.op(w) then w.rop(v)
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                    // Convert a final NotImplemented into an error
+                    mh = firstImplementer(mh, op.errorHandle());
                 }
             }
-
-            // Convert a final NotImplemented into an error
-            mh = firstImplementer(mh, op.errorHandle());
 
             /*
              * If the composite handle throws, it throws here and we do
@@ -485,7 +500,7 @@ public class PyRT {
 
             } else if (wType.isSubTypeOf(vType)) {
                 // type(w) is sub-type of type(v). Try w.rop(v).
-                wRH = rop.handle(wType);
+                wRH = op.reflected.handle(wType);
                 // In the reflected MH, self is second.
                 r = wRH.invokeExact(v, w);
                 if (r == Py.NotImplemented) {
@@ -499,7 +514,7 @@ public class PyRT {
                 r = vMH.invokeExact(v, w);
                 if (r != Py.NotImplemented) {
                     // type(v) does not define v.op. Try w.rop(v).
-                    wRH = rop.handle(wType);
+                    wRH = op.reflected.handle(wType);
                     // In the reflected MH, self is second.
                     r = wRH.invokeExact(v, w);
                 }

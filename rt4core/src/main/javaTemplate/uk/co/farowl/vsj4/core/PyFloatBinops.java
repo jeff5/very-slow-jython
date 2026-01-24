@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -20,22 +20,16 @@ public class PyFloatBinops {
     /*
      * Implementations are not allowed to return NotImplemented. If a
      * binary operation is not defined here, for the pair of Java
-     * classes that type the arguments, the operation is not defined for
-     * the pair of their Python types.
+     * classes, the operation is not specialised, and behaviour is
+     * defined by a method elsewhere with signature like
+     * (PyFloat,Object).
      * 
-     * When matching, we allow a signature here to match if it matches a
-     * type assignable in Java to the class of the argument in question.
-     * Types providing this compatibility must not be too broad, Object
-     * for example, as this would make it necessary to return
-     * NotImplemented.
-     * 
-     * It follows that if a signature f(A, B) appears, where A is an
-     * accepted implementation of Python type P, and B is an accepted
-     * implementation of Python type Q, f(a, b) must be present, or a
-     * signature with compatible types, for every accepted
-     * implementation a of P and b of Q. It is the responsibility of the
-     * script generating this class to ensure this condition is
-     * satisfied.
+     * Reflected binary operations will not be defined here because when
+     * the classes of the operands are known, the operation is defined
+     * already, so we have __sub__ but not __rsub__. Further,
+     * definitions like __sub__(Integer, PyFloat) are allowed, even
+     * though that would be handled by __rsub__, with swapped operands,
+     * but for the definition here.
      */
     private PyFloatBinops() {}  // no instances
 

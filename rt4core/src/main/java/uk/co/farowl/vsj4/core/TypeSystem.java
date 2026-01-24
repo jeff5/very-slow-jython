@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.kernel.BinopTable;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SimpleType;
 import uk.co.farowl.vsj4.kernel.TypeFactory;
@@ -74,6 +75,12 @@ class TypeSystem {
      * class look-ups.
      */
     static final TypeRegistry registry;
+
+    /**
+     * A lookup for binary operations optimised to particular operand
+     * classes.
+     */
+    static final BinopTable binaryOperations;
 
     /*
      * We use these in corresponding TYPE fields avoid a static
@@ -217,6 +224,12 @@ class TypeSystem {
              * the type factory needs to create exposers.
              */
             f.publishBootstrapTypes(TypeExposerImplementation::new);
+
+            // The binary operations table should be complete by now.
+            binaryOperations = factory.getBinops();
+            logger.atDebug()
+                    .setMessage("{} binary operations specialised")
+                    .addArgument(binaryOperations.size()).log();
 
         } catch (Clash clash) {
             // Maybe a bootstrap type was used prematurely?

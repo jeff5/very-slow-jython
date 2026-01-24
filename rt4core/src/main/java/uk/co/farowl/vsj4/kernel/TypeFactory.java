@@ -1062,6 +1062,7 @@ public class TypeFactory {
                  */
                 Class<?> binopClass = spec.getBinopClass();
                 if (binopClass != null) {
+                    type.kernelFeatures.add(KernelTypeFlag.BINOP_TABLE);
                     binops.addFromSpec(type, spec);
                 }
 

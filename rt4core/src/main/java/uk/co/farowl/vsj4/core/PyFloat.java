@@ -43,9 +43,9 @@ public class PyFloat implements WithClass {
         static TypeSpec get() {
             return new TypeSystem.BootstrapSpec("float",
                     MethodHandles.lookup(), PyFloat.class)
+                            .binopImpl(PyFloatBinops.class)
                             .add(Feature.BASETYPE)
                             .methodImpls(PyFloatMethods.class)
-                            // .binops(PyFloatBinops.class)
                             .adopt(Double.class);
         }
     }
