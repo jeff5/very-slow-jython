@@ -1,6 +1,6 @@
 package uk.co.farowl.vsj4c.ext;
 
-import uk.co.farowl.vsj4.runtime.Exposed;
+import uk.co.farowl.vsj4.types.Exposed;
 
 public class Extension
 // extends JavaModule
