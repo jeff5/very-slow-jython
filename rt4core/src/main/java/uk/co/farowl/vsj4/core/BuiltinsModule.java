@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -191,8 +191,8 @@ class BuiltinsModule extends JavaModule {
             // CPython: auditable event
             // if (audit("exec", "O", source) < 0) { return null; }
 
-            PyFunction<?> func = code.createFunction(interp,
-                    globalsDict, null, null, null, free);
+            PyFunction func = code.createFunction(interp, globalsDict,
+                    null, null, null, free);
             PyFrame<?> frame = func.createFrame(locals);
             frame.eval();
 

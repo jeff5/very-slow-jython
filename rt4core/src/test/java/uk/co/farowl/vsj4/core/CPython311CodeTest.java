@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -405,7 +405,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"builtins_module", "function_locals"})
     void executeCustomBuiltins(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         // builtins is a custom type with __setitem__ and __getitem__,
@@ -417,8 +417,9 @@ class CPython311CodeTest extends UnitTestSupport {
         }
         // Add custom builtins to globals for createFunction to find
         globals.put("__builtins__", builtins);
-        PyFunction<?> fn = code.createFunction(interp, globals);
-        PyFrame<?> f = fn.createFrame(globals);
+        // Nominal no-args function wrapping the module code.
+        PyFunction fn = new PyFunction(interp, code, globals);
+        PyFrame<?> f = fn.createFrame(/* locals= */ globals);
         f.eval();
         assertExpectedVariables(readResultDict(name), globals);
     }

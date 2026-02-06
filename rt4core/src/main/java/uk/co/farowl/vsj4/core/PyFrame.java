@@ -1,10 +1,11 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.core.ArgParser.FrameWrapper;
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
@@ -15,9 +16,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * compiled representations of Python code and classes of function. For
  * example, there is one for CPython 3.11 byte code and (we expect)
  * another for Java byte code compiled from Python. The type of code
- * object supported is the parameter {@code C} to the class, and the
- * type of function is parameter {@code F}, which must be compatible
- * with {@code C}.
+ * object supported is the parameter {@code C} to the class.
  * <p>
  * In order that argument processing may be uniform irrespective of
  * concrete type, a {@code PyFrame} presents an abstraction that has
@@ -79,7 +78,16 @@ import uk.co.farowl.vsj4.types.WithClass;
  * subclasses are free to implement these in whatever manner they
  * choose.
  *
- * @param <C> The type of code that this frame executes
+ * @implNote In CPython, the equivalent {@code PyFrameObject}
+ *     ({@code struct _frame}) is a Python object that is largely a
+ *     proxy for a private {@code _PyInterpreterFrame}, a non-Python
+ *     object that may exist independent of any {@code PyFrameObject},
+ *     and is created first. This supports optimisations in CPython, by
+ *     fast allocation of the interpreter frame in the current
+ *     {@code PyThreadState}, but we haven't found a reason to copy this
+ *     pattern in Java.
+ *
+ * @param <C> The type of {@code PyCode} that this frame executes
  */
 public abstract class PyFrame<C extends PyCode> implements WithClass {
 
@@ -91,15 +99,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     PyFrame<? extends PyCode> back;
 
     /** Function of which this is a frame. */
-    final PyFunction<? extends C> func;
-
-    /**
-     * Code this frame is to execute, exposed as immutable
-     * {@code f_code}. We have our own final copy because it is possible
-     * to change the code object that defines {@link #func} but the
-     * frame should continue to reference the code that created it.
-     */
-    final C code;
+    final PyFunction func;
 
     /**
      * Local context (name space) of execution. (Assign if needed.) This
@@ -121,22 +121,22 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
      *
      * @param func defining the code and globals
      */
-    protected PyFrame(PyFunction<? extends C> func) {
-        this.func = func;
-        this.code = func.code;
-    }
+    protected PyFrame(PyFunction func) { this.func = func; }
 
     @Override
     public PyType getType() { return TYPE; }
 
     /**
      * Get the code object this frame is executing, exposed as read-only
-     * {@code f_code}.
+     * {@code f_code}. A {@code frame} must have its own final copy
+     * because it is possible to change the code object that defines
+     * {@link #func} but the frame should continue to reference the code
+     * that created it.
      *
      * @return the code object this frame is executing.
      */
     @Exposed.Getter("f_code")
-    C getCode() { return code; }
+    abstract C getCode();
 
     /**
      * Get the interpreter that defines the import context when
@@ -184,6 +184,23 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
         return locals;
     }
 
+    /**
+     * Return a suitable mechanism to set the parameter local variables
+     * with values from the arguments and defaults held in the
+     * {@code function} object. This will be called during the Python
+     * function call that brings this frame into existence, between the
+     * initial construction and the call to {@link #eval()}.
+     * <p>
+     * The work of assigning values is mostly done by an
+     * {@link ArgParser}, but it needs an abstracted mechanism, the
+     * {@link FrameWrapper}, that allows it actually to set variables
+     * independent of the {@code PyFrame} implementation. This method
+     * must be implemented by each specialisation of {@code PyFrame}.
+     *
+     * @return a wrapper with access to initialise arguments
+     */
+    abstract FrameWrapper getWrapper();
+
     // slot methods --------------------------------------------------
 
     @SuppressWarnings("unused")
@@ -197,6 +214,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     @Override
     // Compare CPython frame_repr in frameobject.c
     public String toString() {
+        PyCode code = getCode();
         int lineno = code.firstlineno;
         if (lineno == 0) { lineno = -1; }
         String file = code.filename, q = "'";

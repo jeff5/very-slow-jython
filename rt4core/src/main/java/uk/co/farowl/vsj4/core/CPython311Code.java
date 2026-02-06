@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -233,47 +233,9 @@ public class CPython311Code extends PyCode {
 
     // Java API -------------------------------------------------------
 
-    /**
-     * Create a {@code PyFunction} that will execute this {@code PyCode}
-     * (adequate for module-level code).
-     *
-     * @param interpreter providing the module context
-     * @param globals name space to treat as global variables
-     * @return the function
-     */
-    // Compare CPython PyFunction_NewWithQualName in funcobject.c
-    // ... with the interpreter required by architecture
     @Override
-    CPython311Function createFunction(Interpreter interpreter,
-            PyDict globals) {
-        return new CPython311Function(interpreter, this, globals);
-    }
-
-    @Override
-    CPython311Function createFunction(Interpreter interpreter,
-            PyDict globals, Object[] defaults, PyDict kwdefaults,
-            Object annotations, PyCell[] closure) {
-        return new CPython311Function(interpreter, this, globals,
-                defaults, kwdefaults, annotations, closure);
-    }
-
-    /**
-     * Build an {@link ArgParser} to match the code object and given
-     * defaults. This is a call-back when constructing a
-     * {@code CPython311Function} from this {@code code} object and also
-     * when the code object of a function is replaced. The method
-     * ensures the parser reflects the variable names and the frame
-     * layout implied by the code object. The caller (the function
-     * definition) supplies the default values of arguments on return.
-     *
-     * @return parser reflecting the frame layout of this code object
-     */
-    ArgParser buildParser() {
-        int regargcount = argcount + kwonlyargcount;
-        return new ArgParser(name, layout.localnames, regargcount,
-                posonlyargcount, kwonlyargcount,
-                flags.contains(CodeFlag.VARARGS),
-                flags.contains(CodeFlag.VARKEYWORDS));
+    CPython311Frame createFrame(PyFunction func, Object locals) {
+        return new CPython311Frame(func, this, locals);
     }
 
     @Override

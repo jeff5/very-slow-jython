@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -23,6 +23,12 @@ import uk.co.farowl.vsj4.types.WithDict;
 
 /** A {@link PyFrame} for executing CPython 3.11 byte code. */
 class CPython311Frame extends PyFrame<CPython311Code> {
+
+    /**
+     * The code object this frame is executing, exposed as read-only
+     * {@code f_code}.
+     */
+    final CPython311Code code;
 
     /**
      * All local variables, named in {@link Layout#localnames()
@@ -84,15 +90,17 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * </ul>
      *
      * @param func that this frame executes
+     * @param code code object of the {@code func}
      * @param locals local name space (may be {@code null})
      */
-    // Compare CPython _PyFrame_New_NoTrack in frameobject.c
-    protected CPython311Frame(CPython311Function func, Object locals) {
+    CPython311Frame(PyFunction func, CPython311Code code,
+            Object locals) {
 
         // Initialise the basics.
         super(func);
+        assert func.code == code;
+        this.code = code;
 
-        CPython311Code code = func.code;
         this.valuestack = new Object[code.stacksize];
         int nfast = 0;
 
@@ -117,6 +125,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
              * wrap any Python object as a Map. Depending on the
              * operations attempted, this may break later.
              */
+            // TODO wrap any Python object as a Map
             this.locals = locals;
         }
 
@@ -127,6 +136,15 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         this.fastlocals =
                 nfast > 0 ? new Object[nfast] : EMPTY_OBJECT_ARRAY;
         // Free variables are initialised by opcode COPY_FREE_VARS
+    }
+
+    @Override
+    CPython311Code getCode() { return code; }
+
+    @Override
+    ArgParser.FrameWrapper getWrapper() {
+        ArgParser argParser = func.getArgParser();
+        return argParser.new ArrayFrameWrapper(fastlocals);
     }
 
     @Override
@@ -1268,28 +1286,30 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     private int makeFunction(int oparg, int sp) {
         // Shorthands
         Object[] s = valuestack;
-        PyFunction<?> f = this.func, func;
+        PyFunction f = this.func, func;
 
-        PyCode code = (PyCode)s[--sp];
+        if (s[--sp] instanceof PyCode code) {
+            if (oparg == 0) {
+                // Simple case: function object with no extras.
+                func = new PyFunction(f.interpreter, code, f.globals);
+            } else {
+                // Optional extras specified: extract the arguments.
+                PyCell[] closure = (oparg & 8) == 0 ? null
+                        : ((PyTuple)s[--sp]).toArray(PyCell.class);
+                Object annotations = (oparg & 4) == 0 ? null : s[--sp];
+                PyDict kwdefaults =
+                        (oparg & 2) == 0 ? null : (PyDict)s[--sp];
+                Object[] defaults = (oparg & 1) == 0 ? null
+                        : ((PyTuple)s[--sp]).toArray();
+                func = new PyFunction(f.interpreter, code, f.globals,
+                        defaults, kwdefaults, annotations, closure);
+            }
 
-        if (oparg == 0) {
-            // Simple case: function object with no extras.
-            func = code.createFunction(f.interpreter, f.globals);
+            s[sp++] = func;
+            return sp;
         } else {
-            // Optional extras specified: extract the arguments.
-            PyCell[] closure = (oparg & 8) == 0 ? null
-                    : ((PyTuple)s[--sp]).toArray(PyCell.class);
-            Object annotations = (oparg & 4) == 0 ? null : s[--sp];
-            PyDict kwdefaults =
-                    (oparg & 2) == 0 ? null : (PyDict)s[--sp];
-            Object[] defaults = (oparg & 1) == 0 ? null
-                    : ((PyTuple)s[--sp]).toArray();
-            func = code.createFunction(f.interpreter, f.globals,
-                    defaults, kwdefaults, annotations, closure);
+            throw Abstract.impossibleArgumentError("code object", code);
         }
-
-        s[sp++] = func;
-        return sp;
     }
 
     /**

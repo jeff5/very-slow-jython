@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -139,6 +139,11 @@ public abstract class PyCode implements WithClass {
         this.firstlineno = firstlineno;
     }
 
+    // Java API ------------------------------------------------------
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
     @Override
     public PyType getType() { return TYPE; }
 
@@ -172,14 +177,14 @@ public abstract class PyCode implements WithClass {
      * by a code object and where they will be stored in the frame it
      * creates. This interface abstracts the the storage layout of any
      * concrete implementation of {@link PyCode} or {@link PyFrame} and
-     * the description the latter must be able to make of its local
+     * the description the former must be able to make of its local
      * variables in the Python API of a {@code code} object. This allows
      * us to treat code objects the same way, whether they contain
      * Python 3.11 byte code or Java byte code.
      * <p>
-     * It is used to, for example, initialise the {@code frame} of a
-     * function call, and to compute the name tuples of a {@link PyCode}
-     * and the argument parser is uses.
+     * It is used to initialise the {@code frame} of a function call,
+     * and to compute the name tuples of a {@link PyCode} and the
+     * argument parser that it uses.
      */
     interface Layout {
 
@@ -213,7 +218,7 @@ public abstract class PyCode implements WithClass {
          * {@code co_cellvars} will repeat names from
          * {@code co_varnames} if they are parameters.
          *
-         * @return names of all local variables.
+         * @return names of all (parameters and) local variables.
          */
         Stream<String> localnames();
 
@@ -221,9 +226,9 @@ public abstract class PyCode implements WithClass {
          * Return a stream of the names of variables to include in
          * {@code co_varnames}. These are the parameters and then the
          * plain (non-cell, non-free) variables. Note that some of the
-         * arguments may be cell variables.
+         * parameters may be cell variables.
          *
-         * @return names of non-cell and parameters variables.
+         * @return names of parameters and non-cell variables.
          */
         Stream<String> varnames();
 
@@ -233,7 +238,7 @@ public abstract class PyCode implements WithClass {
          * {@code code} object and stored as cells. Note that some of
          * the parameters may be cell variables.
          *
-         * @return names of cell variables (may be parameters).
+         * @return names of cell variables (some may be parameters).
          */
         Stream<String> cellvars();
 
@@ -276,6 +281,27 @@ public abstract class PyCode implements WithClass {
     // CPython specific at first glance but not after some thought.
     // Compare CPython 3.11 localsplusnames and localspluskinds
     abstract Layout layout();
+
+    /**
+     * Build an {@link ArgParser} to match the code object and given
+     * defaults. This is called when constructing a {@link PyFunction}
+     * from this {@code code} object, and also when the code object of a
+     * function is replaced. The method ensures the parser reflects the
+     * variable names and the frame layout implied by the code object.
+     * The caller (the function definition) supplies the default values
+     * of arguments on return.
+     *
+     * @return parser reflecting the frame layout of this code object
+     */
+    ArgParser buildParser() {
+        String[] localnames =
+                layout().localnames().toArray(String[]::new);
+        int regargcount = argcount + kwonlyargcount;
+        return new ArgParser(name, localnames, regargcount,
+                posonlyargcount, kwonlyargcount,
+                flags.contains(CodeFlag.VARARGS),
+                flags.contains(CodeFlag.VARKEYWORDS));
+    }
 
     // Attributes ----------------------------------------------------
 
@@ -329,7 +355,10 @@ public abstract class PyCode implements WithClass {
     PyTuple co_names() { return PyTuple.from(names); }
 
     /**
-     * Get {@code co_varnames} as a {@code tuple}.
+     * Get {@code co_varnames} as a {@code tuple}. These are the names
+     * (in order) of the function arguments and (if available) local
+     * variables. The order is important when placing actual argument
+     * values into the frame created during a function call.
      *
      * @return {@code co_varnames} as a {@code tuple}
      */
@@ -375,13 +404,10 @@ public abstract class PyCode implements WithClass {
 
     // Java API ------------------------------------------------------
 
-    @Override
-    public String toString() { return PyUtil.defaultToString(this); }
-
     /**
      * Create a {@code PyFunction} that will execute this
      * {@code PyCode}. The strongly-typed {@code defaults},
-     * {@code kwdefaults} , {@code closure} and {@code annotations} may
+     * {@code kwdefaults}, {@code closure} and {@code annotations} may
      * be {@code null} if they would otherwise be empty.
      * {@code annotations} is always exposed as a {@code dict}, but may
      * be presented to the constructor as a {@code dict} or
@@ -398,9 +424,12 @@ public abstract class PyCode implements WithClass {
      *     size expected by code or {@code null} if empty.
      * @return the function from this code
      */
-    abstract PyFunction<? extends PyCode> createFunction(
-            Interpreter interpreter, PyDict globals, Object[] defaults,
-            PyDict kwdefaults, Object annotations, PyCell[] closure);
+    PyFunction createFunction(Interpreter interpreter, PyDict globals,
+            Object[] defaults, PyDict kwdefaults, Object annotations,
+            PyCell[] closure) {
+        return new PyFunction(interpreter, this, globals, defaults,
+                kwdefaults, annotations, closure);
+    }
 
     /**
      * Create a {@code PyFunction} that will execute this {@code PyCode}
@@ -410,13 +439,36 @@ public abstract class PyCode implements WithClass {
      * @param globals name space to treat as global variables
      * @return the function
      */
-    // Compare CPython PyFunction_New in funcobject.c
+    // Compare CPython PyFunction_NewWithQualName in funcobject.c
     // ... with the interpreter required by architecture
-    PyFunction<? extends PyCode> createFunction(Interpreter interpreter,
-            PyDict globals) {
-        return createFunction(interpreter, globals, Util.EMPTY_ARRAY,
-                Py.dict(), Py.dict(), PyCell.EMPTY_ARRAY);
+    PyFunction createFunction(Interpreter interpreter, PyDict globals) {
+        return createFunction(interpreter, globals, null, null, null,
+                null);
     }
+
+    /**
+     * Create a {@link PyFrame} that will execute this {@code PyCode},
+     * with the given local variables object, taking all other values
+     * necessary from the function. In the case of a frame created to
+     * execute module level code, or for {@code builtins.exec()}, the
+     * caller creates a notional function, with no arguments, to hold
+     * this context.
+     * <p>
+     * This frame will be created "loose": {@link PyFrame#back} will be
+     * {@code null} as it will not be on any thread's stack.
+     * ({@link PyFrame#eval()} is responsible for that.) The frame
+     * returned will also be incomplete in that the values of local
+     * variables will be undefined where they are arguments to the
+     * function. The caller must supply these arguments to the frame
+     * directly, usually through a call to {@link PyFrame#getWrapper()}
+     * and use of an {@link ArgParser}.
+     *
+     * @param func providing the context for execution
+     * @param locals name space to treat as local variables
+     * @return a frame to execute this code
+     */
+    abstract PyFrame<? extends PyCode> createFrame(PyFunction func,
+            Object locals);
 
     /**
      * Return the total space in a frame of a code object, that must be
