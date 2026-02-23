@@ -107,12 +107,13 @@ public class PyRT {
      * @param name encoding the operation
      * @param type signature of the operation
      * @return call site for the operation
-     * @throws NoSuchMethodException if name cannot be mapped
+     * @throws InterpreterError if name cannot be mapped
      */
     public static CallSite bootstrap(Lookup lookup, String name,
-            MethodType type) throws NoSuchMethodException {
+            MethodType type) {
         CallSite site = switch (name) {
             // TODO Maybe use AST node names/enum for call sites?
+            // See operator_ty, unaryop_ty etc. in pycore_ast.h
             case "negative" -> new UnaryOpCallSite(
                     SpecialMethod.op_neg);
             case "positive" -> new UnaryOpCallSite(
@@ -127,7 +128,10 @@ public class PyRT {
             default -> null;
         };
 
-        if (site == null) { throw new NoSuchMethodException(name); }
+        if (site == null) {
+            throw new InterpreterError(
+                    "call site type %s not recognised", name);
+        }
         return site;
     }
 

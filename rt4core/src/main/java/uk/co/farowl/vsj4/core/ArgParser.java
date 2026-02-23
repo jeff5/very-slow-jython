@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -731,15 +731,37 @@ class ArgParser {
         }
 
         /**
-         * Get the local variable named by {@code argnames[i]}
+         * Get the local variable with logical index {@code i}, named by
+         * {@code argnames[i]} if it is a parameter. The valid range of
+         * the index {@code i} is at least 0 to
+         * {@code argnames.length-1}.
+         * <p>
+         * A frame may implement this API to give access to <i>all
+         * of</i> its local variables through indices matching the order
+         * of the {@code localnames} of the associated code object.
+         * (Local variables do not have to be implemented as an array.)
          *
-         * @param i index of variable name in {@code argnames}
-         * @return value of variable named {@code argnames[i]}
+         * @implSpec Each implementation of {@code FrameWrapper} must
+         *     define (and document) how {@link #getLocal(int)} and
+         *     {@link #setLocal(int, Object)} behave when when the index
+         *     maps to a cell variable. {@code getLocal} may get the
+         *     contents of the cell, or get the cell object itself.
+         *
+         * @param i index of the variable in the frame
+         * @return local variable/cell with index {@code i}
          */
         abstract Object getLocal(int i);
 
         /**
-         * Set the local variable named by {@code argnames[i]}
+         * Set the local variable with logical index {@code i}. See
+         * {@link #getLocal(int)} for details.
+         *
+         * @implSpec Each implementation of {@code FrameWrapper} must
+         *     define (and document) how {@link #getLocal(int)} and
+         *     {@link #setLocal(int, Object)} behave when when the index
+         *     maps to a cell variable. {@code setLocal} may set the
+         *     contents of the cell, or store the object {@code v}
+         *     cell-nature a client problem.
          *
          * @param i index of variable name in {@code argnames}
          * @param v to assign to variable named {@code argnames[i]}
@@ -1276,9 +1298,26 @@ class ArgParser {
          */
         ArrayFrameWrapper(Object[] vars) { this(vars, 0); }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * If local variable {@code i} is a cell variable, the
+         * {@link PyCell} itself is returned. This is the correct
+         * semantic when a closure is being built.
+         */
         @Override
         Object getLocal(int i) { return vars[start + i]; }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * If local variable {@code i} is a cell variable, the
+         * {@link PyCell} is replaced with {@code v}, whether that is a
+         * cell or not. This is the correct choice when initialising a
+         * CPython frame because the byte code begins by replacing the
+         * initial values with cells that contain them. If the other
+         * semantic is required, use {@code getLocal(i).set(v)}.
+         */
         @Override
         void setLocal(int i, Object v) { vars[start + i] = v; }
 

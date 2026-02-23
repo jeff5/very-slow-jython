@@ -128,7 +128,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
                 "call_method_builtin", "function_def", "function_call"})
         void testExecFile(String name) {
             // A code object to exec
-            CPython311Code code = readCode(name);
+            PyCode code = readCode(name);
             // Invokes the exec method
             ActionHolder c = new ActionHolder("exec-file") {
                 @Override
@@ -262,9 +262,13 @@ class BuiltinsModuleTest extends UnitTestSupport {
             public String name(int index) { return N[index]; }
 
             @Override
-            public EnumSet<VariableTrait> traits(int index) {
-                return EnumSet.noneOf(VariableTrait.class);
-            }
+            public boolean isLocal(int index) { return false; }
+
+            @Override
+            public boolean isCell(int index) { return false; }
+
+            @Override
+            public boolean isFree(int index) { return false; }
         };
 
         /**

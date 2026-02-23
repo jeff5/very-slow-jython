@@ -9,7 +9,6 @@ import java.util.Map;
 
 import uk.co.farowl.vsj4.core.CPython311Code.CPythonLayout;
 import uk.co.farowl.vsj4.core.PyCode.Layout;
-import uk.co.farowl.vsj4.core.PyCode.VariableTrait;
 import uk.co.farowl.vsj4.core.PyDict.MergeMode;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal.Util;
@@ -55,7 +54,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     /**
      * Create a {@code CPython311Frame}, which is a {@code PyFrame} with
      * the storage and mechanism to execute a module or isolated code
-     * object (compiled to a {@link CPython311Code}.
+     * object (compiled to a {@link CPython311Code}).
      * <p>
      * This will set the {@link #func} and (sometimes) {@link #locals}
      * fields of the frame. The {@code globals} and {@code builtins}
@@ -940,6 +939,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
             }
         } // loop
 
+        // TODO Pop frame (with proper exception handling)
         // ThreadState.get().swap(back);
         return returnValue;
     }
@@ -1354,14 +1354,13 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     // Compare CPython format_exc_unbound in ceval.c
     private PyBaseException unboundCell(int oparg) {
         String name = code.layout.name(oparg);
-        EnumSet<VariableTrait> traits = code.layout.traits(oparg);
-        if (traits.contains(VariableTrait.CELL)) {
+        if (code.layout.isCell(oparg)) {
             // Cell is in cellvars
             return PyErr.format(PyExc.UnboundLocalError,
                     UNBOUNDLOCAL_ERROR_MSG, name);
         } else {
             // Cell is in freevars = closure
-            assert traits.contains(VariableTrait.FREE);
+            assert code.layout.isFree(oparg);
             return PyErr.format(PyExc.NameError, UNBOUNDFREE_ERROR_MSG,
                     name);
         }

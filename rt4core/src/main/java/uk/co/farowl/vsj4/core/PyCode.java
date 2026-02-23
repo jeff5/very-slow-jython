@@ -25,7 +25,8 @@ import uk.co.farowl.vsj4.types.WithClass;
  * Python byte code. While we represent compiled code of any kind as a
  * Python {@code code} object, not all attributes documented in the
  * Python data model will be meaningful in every implementation of
- * {@code PyCode}.
+ * {@code PyCode}. This base class holds (and exposes) attributes common
+ * to all Python {@code code} objects.
  * <p>
  * The abstract base {@code PyCode} has a need to store fewer attributes
  * than the concrete CPython {@code code} object, where the only
@@ -82,16 +83,16 @@ public abstract class PyCode implements WithClass {
 
     // Construct with arrays not tuples.
     /**
-     * Full constructor. The {@link #flags} of the code are supplied
-     * here as CPython reports them: as a bit array in an integer, but
-     * the constructor makes a conversion, and it is the {@link #flags}
-     * which should be used at the Java level.
-     * <p>
+     * Constructor for the common base of Python {@code code} objects.
      * Where the parameters map directly to an attribute of the code
-     * object, that is the best way to explain them. Note that this
-     * factory method is tuned to the needs of {@code marshal.read}
-     * where the serialised form makes no secret of the version-specific
-     * implementation details.
+     * object, that is the best way to explain them. Local variable name
+     * and type information (see {@link #layout()}) is dealt with in an
+     * implementation-specific way by the concrete sub-classes.
+     * <p>
+     * The {@link #flags} of the code are de-serialised as CPython
+     * reports them: as a bit array in an integer, but the constructor
+     * expects a converted {@code EnumSet<CodeFlag>}, stored as
+     * {@link #flags}, that should be used at the Java level.
      *
      * @param filename {@code co_filename}
      * @param name {@code co_name}
@@ -104,26 +105,35 @@ public abstract class PyCode implements WithClass {
      * @param names {@code co_names}
      *
      * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only arguments and arguments
-     *     with default values)
+     *     parameters (including positional-only parameters)
      * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only arguments (including arguments with default
+     *     positional-only parameters (including those with default
      *     values)
      * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only arguments (including arguments with default
-     *     values)
+     *     keyword-only parameters (including those with default values)
      */
     public PyCode( //
             // Grouped as _PyCodeConstructor in pycore_code.h
+
             // Metadata
             String filename, String name, String qualname, //
             EnumSet<CodeFlag> flags,
+
             // The code (not seeing actual byte code in abstract base)
-            int firstlineno, // ??? sensible given filename
-            // Used by the code
+            int firstlineno,
+
+            // Constants used by the code
             Object[] consts, String[] names, //
-            // Parameter navigation with varnames
+
+            // Parameter navigation within varnames
             int argcount, int posonlyargcount, int kwonlyargcount) {
+
+        if (argcount < posonlyargcount || posonlyargcount < 0
+                || kwonlyargcount < 0) {
+            throw PyErr.format(PyExc.ValueError,
+                    "code: argument counts inconsistent");
+        }
+
         this.argcount = argcount;
         this.posonlyargcount = posonlyargcount;
         this.kwonlyargcount = kwonlyargcount;
@@ -148,43 +158,24 @@ public abstract class PyCode implements WithClass {
     public PyType getType() { return TYPE; }
 
     /**
-     * Traits characterising local variables of the frame this code
-     * object will produce.
-     */
-    enum VariableTrait {
-        /**
-         * Belongs in {@code co_varnames}. For legacy reasons this means
-         * parameters to the function (even if they are also cell
-         * variables), and other local variables that are not cells (or
-         * free).
-         */
-        PLAIN,
-        /**
-         * Belongs in {@code co_cellvars}. This means the non-free cell
-         * variables, even if they are also parameters to the function,
-         * in which case they have the {@link #PLAIN} trait too.
-         */
-        CELL,
-        /**
-         * Belongs in {@code co_freevars}. These are just the free cell
-         * variables. (They cannot also be parameters.)
-         */
-        FREE
-    }
-
-    /**
      * Interface on a store of information about the variables required
      * by a code object and where they will be stored in the frame it
      * creates. This interface abstracts the the storage layout of any
      * concrete implementation of {@link PyCode} or {@link PyFrame} and
      * the description the former must be able to make of its local
-     * variables in the Python API of a {@code code} object. This allows
-     * us to treat code objects the same way, whether they contain
-     * Python 3.11 byte code or Java byte code.
+     * variables in the Python API of a {@code code} object.
      * <p>
-     * It is used to initialise the {@code frame} of a function call,
-     * and to compute the name tuples of a {@link PyCode} and the
-     * argument parser that it uses.
+     * It is used to initialise the {@code frame} of a function call, to
+     * compute the name tuples of a {@link PyCode}, and to construct the
+     * argument parser that the function uses. This allows us to treat
+     * code objects the same way, whether they contain Python byte code
+     * or Java byte code, and (to an extent) whether for Python 3.11 or
+     * some other version.
+     * <p>
+     * Most of the difference between the code objects for different
+     * versions of Python is in structure of the the associated frame,
+     * and the arguments given to the {@code code} object constructor to
+     * describe it.
      */
     interface Layout {
 
@@ -203,13 +194,53 @@ public abstract class PyCode implements WithClass {
         String name(int index);
 
         /**
-         * Return the {@link VariableTrait}s of the variable at a given
-         * index .
+         * The variable at the given index should appear in
+         * {@link PyCode#co_varnames()}. This means that the variable is
+         * defined in this scope, and not a cell variable, or it is a
+         * parameter (which may be a cell variable). This complicated
+         * definition is for legacy reasons in Python.
          *
          * @param index of variable
-         * @return traits of the local variable
+         * @return whether it should appear in {@code co_varnames()}.
          */
-        EnumSet<VariableTrait> traits(int index);
+        // Compare CO_FAST_LOCAL in CPython pycore_code.h
+        boolean isLocal(int index);
+
+        /**
+         * The variable at the given index is defined in this scope and
+         * referenced from an inner scope. It will be implemented in a
+         * {@link PyCell}. It will appear in
+         * {@link PyCode#co_cellvars()}.
+         *
+         * @param index of variable
+         * @return whether cell defined in this scope
+         */
+        // Compare CO_FAST_CELL in CPython pycore_code.h
+        boolean isCell(int index);
+
+        /**
+         * The variable at the given index is defined in an outer scope
+         * and referenced from an this scope. It will be implemented in
+         * a {@link PyCell}. It will appear in
+         * {@link PyCode#co_freevars()}.
+         *
+         * @param index of variable
+         * @return whether cell defined in outer scope
+         */
+        // Compare CO_FAST_FREE in CPython pycore_code.h
+        boolean isFree(int index);
+
+        /**
+         * The variable at the given index is implemented in a
+         * {@link PyCell}. This is equivalent to
+         * {@code isCell(index) || isFree(index)}.
+         *
+         * @param index of variable
+         * @return whether implemented as a cell
+         */
+        default boolean isCellOrFree(int index) {
+            return isCell(index) || isFree(index);
+        }
 
         /**
          * Return a stream of the names of all the local variables These
@@ -471,15 +502,6 @@ public abstract class PyCode implements WithClass {
             Object locals);
 
     /**
-     * Return the total space in a frame of a code object, that must be
-     * reserved for arguments. This is also the size of the layout array
-     * appearing as an argument to constructors.
-     *
-     * @return total space in frame for arguments
-     */
-    int totalargs() { return totalargs(argcount, flags); }
-
-    /**
      * From the values of {@code co_argcount} and {@code co_flags} (in
      * practice, as they are de-marshalled), compute the total space in
      * a frame of a code object, that must be reserved for arguments.
@@ -513,7 +535,7 @@ public abstract class PyCode implements WithClass {
      * @param tupleName the name of the argument (for error production)
      * @return the names as {@code String[]}
      */
-    protected static String[] names(Object v, String tupleName) {
+    static String[] names(Object v, String tupleName) {
         PyTuple tuple = castTuple(v, tupleName);
         String[] s = new String[tuple.size()];
         int i = 0;
@@ -531,7 +553,7 @@ public abstract class PyCode implements WithClass {
      * @throws PyBaseException (TypeError) if {@code v} cannot be cast
      *     to {@code bytes}
      */
-    protected static PyBytes castBytes(Object v, String arg)
+    static PyBytes castBytes(Object v, String arg)
             throws PyBaseException {
         if (v instanceof PyBytes b)
             return b;
@@ -546,7 +568,7 @@ public abstract class PyCode implements WithClass {
      * @throws PyBaseException (TypeError) if {@code v} cannot be cast
      *     to {@code tuple}
      */
-    protected static PyTuple castTuple(Object v, String arg) {
+    static PyTuple castTuple(Object v, String arg) {
         if (v instanceof PyTuple t)
             return t;
         else
@@ -561,7 +583,7 @@ public abstract class PyCode implements WithClass {
      * @param argName the name of the argument (for error production)
      * @return {@code v}
      */
-    protected static String castString(Object v, String argName) {
+    static String castString(Object v, String argName) {
         return PyUnicode.asString(v, o -> Abstract
                 .argumentTypeError("code", argName, "str", o));
     }

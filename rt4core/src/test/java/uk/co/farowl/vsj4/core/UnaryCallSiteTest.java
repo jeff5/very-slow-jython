@@ -251,7 +251,7 @@ class UnaryCallSiteTest extends UnitTestSupport {
                 CallSite cs = PyRT.bootstrap(LOOKUP, name,
                         Signature.UNARY.type);
                 return arguments(name, mix, ref, cs, values);
-            } catch (NoSuchMethodException e) {
+            } catch (InterpreterError e) {
                 logger.atError().setMessage(
                         "failed to create test arguments for \"{}\" {}")
                         .addArgument(name).addArgument(mix).log();

@@ -497,6 +497,11 @@ public class PyFunction implements WithDict {
     Interpreter getInterpreter() { return interpreter; }
 
     /**
+     * Return the argument parser for this function. This parser is
+     * derived from the code object last assigned to the function. It is
+     * used to create a wrapper on the frame created when the function
+     * is called.
+     *
      * @return the argParser
      */
     ArgParser getArgParser() { return argParser; }

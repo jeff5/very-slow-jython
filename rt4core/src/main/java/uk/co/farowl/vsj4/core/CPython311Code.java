@@ -3,12 +3,7 @@
 package uk.co.farowl.vsj4.core;
 
 import java.nio.ShortBuffer;
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.Spliterator;
-import java.util.function.Consumer;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
 
@@ -16,7 +11,7 @@ import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
  * A concrete implementation of the Python v3.11 {@code code} object
  * ({@code PyCodeObject} in CPython's C API).
  */
-public class CPython311Code extends PyCode {
+public class CPython311Code extends PyCode311 {
 
     /**
      * Describe the layout of the frame local variables (including
@@ -76,14 +71,13 @@ public class CPython311Code extends PyCode {
      *     repetition.
      *
      * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only arguments and arguments
+     *     parameters (including positional-only parameters and those
      *     with default values)
      * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only arguments (including arguments with default
+     *     positional-only parameters (including those with default
      *     values)
      * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only arguments (including arguments with default
-     *     values)
+     *     keyword-only parameters (including those with default values)
      *
      * @param stacksize {@code co_stacksize}
      * @param exceptiontable supports exception processing
@@ -120,9 +114,10 @@ public class CPython311Code extends PyCode {
 
     /**
      * Essentially equivalent to the (strongly-typed) constructor, but
-     * accepting {@code Object} arguments, which are checked for type
-     * here. This is primarily designed for use by the {@code marshal}
-     * module.
+     * accepting {@code Object} arguments, that are checked for type
+     * here. This factory method is tuned to the needs of
+     * {@code marshal.read} where the serialised form makes no secret of
+     * the version-specific implementation details.
      * <p>
      * The {@link PyCode#flags} of the code are supplied here as CPython
      * reports them: as a bitmap in an integer, but this method makes a
@@ -130,10 +125,7 @@ public class CPython311Code extends PyCode {
      * that should be used at the Java level.
      * <p>
      * Where the parameters map directly to an attribute of the code
-     * object, that is the best way to explain them. Note that this
-     * factory method is tuned to the needs of {@code marshal.read}
-     * where the serialised form makes no secret of the version-specific
-     * implementation details.
+     * object, that is the best way to explain them.
      *
      * @param filename ({@code str}) = {@code co_filename}
      * @param name ({@code str}) = {@code co_name}
@@ -149,12 +141,14 @@ public class CPython311Code extends PyCode {
      *
      * @param localsplusnames ({@code tuple[str]}) variable names
      * @param localspluskinds ({@code bytes}) variable kinds
+     *
      * @param argcount ({@code int}) = {@code co_argcount}
      * @param posonlyargcount ({@code int}) = {@code co_posonlyargcount}
      * @param kwonlyargcount ({@code int}) = {@code co_kwonlyargcount}
      * @param stacksize ({@code int}) = {@code co_stacksize}
      * @param exceptiontable ({@code tuple}) supports exception
      *     processing
+     *
      * @return a new code object
      */
     // Compare CPython _PyCode_New in codeobject.c
@@ -174,17 +168,8 @@ public class CPython311Code extends PyCode {
             int stacksize, Object exceptiontable) {
 
         // Order of checks and casts based on _PyCode_Validate FWIW
-        if (argcount < posonlyargcount || posonlyargcount < 0
-                || kwonlyargcount < 0) {
-            throw PyErr.format(PyExc.ValueError,
-                    "code: argument counts inconsistent");
-        }
         if (stacksize < 0) {
             throw PyErr.format(PyExc.ValueError, "code: bad stacksize");
-        }
-        if (flags < 0) {
-            throw PyErr.format(PyExc.ValueError,
-                    "code: bad flags argument");
         }
 
         String _filename = castString(filename, "filename");
@@ -197,8 +182,8 @@ public class CPython311Code extends PyCode {
         String[] _names = names(names, "names");
 
         // Compute a layout from localsplus* arrays
-        CPythonLayout _layout = new CPythonLayout(localsplusnames,
-                localspluskinds, totalargs(argcount, _flags));
+        CPythonLayout _layout =
+                new CPythonLayout(localsplusnames, localspluskinds);
 
         PyBytes _linetable = castBytes(linetable, "linetable");
         PyBytes _exceptiontable =
@@ -246,29 +231,7 @@ public class CPython311Code extends PyCode {
      * {@link CPython311Code} object and where they will be stored in
      * the frame it creates.
      */
-    final static class CPythonLayout implements Layout {
-        /** Count of {@code co_varnames} */
-        final int nvarnames;
-        /** Count of {@code co_cellvars} */
-        final int ncellvars;
-        /** Count of {@code co_freevars} */
-        final int nfreevars;
-        /**
-         * Index of first cell (which may be a parameter). Cell
-         * variables do not in general form a contiguous block in the
-         * frame.
-         */
-        private final int cell0;
-        /**
-         * Index of first free variable. Free variables form a
-         * contiguous block in the frame from this index.
-         */
-        final int free0;
-        /** Names of all the variables in frame order. */
-        private final String[] localnames;
-        /** Kinds of all the variables in frame order. */
-        private final byte[] kinds;
-
+    final static class CPythonLayout extends Layout311 {
         /**
          * Construct a {@code Layout} based on a representation used
          * internally by CPython that appears in the stream
@@ -276,184 +239,18 @@ public class CPython311Code extends PyCode {
          *
          * @param localsplusnames tuple of all the names
          * @param localspluskinds bytes of kinds of variables
-         * @param nargs the number (leading) that are arguments
          */
         CPythonLayout(
                 // Mapping frame offsets to information
-                Object localsplusnames, Object localspluskinds,
-                // For navigation within localsplus
-                int nargs) {
+                Object localsplusnames, Object localspluskinds) {
 
-            PyTuple nameTuple =
-                    castTuple(localsplusnames, "localsplusnames");
-            PyBytes kindBytes =
-                    castBytes(localspluskinds, "localspluskinds");
+            super(localsplusnames, localspluskinds);
 
-            int n = nameTuple.size();
-            this.localnames = new String[n];
-            this.kinds = new byte[n];
-
-            if (kindBytes.size() != n) {
-                throw PyErr.format(PyExc.ValueError, LENGTHS_UNEQUAL,
-                        kindBytes.size(), n);
-            }
-
-            // Compute indexes into name arrays as we go
-            int nloc = 0, nfree = 0, ncell = 0, icell0 = -1;
-
-            /*
-             * Step through the localsplus* variables saving the name
-             * and kind of each, and counting the different kinds.
-             */
-            for (int i = 0; i < n; i++) {
-
-                String s = PyUnicode.asString(nameTuple.get(i),
-                        o -> Abstract.typeError(NAME_TUPLES_STRING, o,
-                                "localsplusnames"));
-                byte kindByte = kindBytes.get(i).byteValue();
-
-                if ((kindByte & CO_FAST_LOCAL) != 0) {
-                    if ((kindByte & CO_FAST_CELL) != 0) {
-                        // Argument referenced by nested scope.
-                        ncell += 1;
-                        // Remember where this happens first.
-                        if (icell0 < 0) { icell0 = i; }
-                    }
-                    nloc += 1;
-                } else if ((kindByte & CO_FAST_CELL) != 0) {
-                    // Locally defined but referenced in nested scope.
-                    ncell += 1;
-                } else if ((kindByte & CO_FAST_FREE) != 0) {
-                    // Supplied from a containing scope.
-                    nfree += 1;
-                }
-                localnames[i] = s;
-                kinds[i] = kindByte;
-            }
-
-            // Cache the counts and cardinal points.
-            this.nvarnames = nloc;
-            this.ncellvars = ncell;
-            this.nfreevars = nfree;
-            // If icell0>=0 cell parameter seen, else first cell.
-            this.cell0 = icell0 >= 0 ? icell0 : n - nfree - ncell;
-            this.free0 = localnames.length - nfree;
-        }
-
-        @Override
-        public int size() { return localnames.length; }
-
-        @Override
-        public String name(int index) { return localnames[index]; }
-
-        @Override
-        public EnumSet<VariableTrait> traits(int index) {
-            byte kindByte = kinds[index];
-
-            if ((kindByte & CO_FAST_LOCAL) != 0) {
-                if ((kindByte & CO_FAST_CELL) != 0)
-                    // Argument referenced by nested scope
-                    return EnumSet.of(VariableTrait.PLAIN,
-                            VariableTrait.CELL);
-                else
-                    return EnumSet.of(VariableTrait.PLAIN);
-            } else if ((kindByte & CO_FAST_CELL) != 0) {
-                // Locally defined but referenced in nested scope
-                return EnumSet.of(VariableTrait.CELL);
-            } else {
-                // Supplied from a containing scope
-                assert (kindByte & CO_FAST_FREE) != 0;
-                return EnumSet.of(VariableTrait.FREE);
-            }
-        }
-
-        @Override
-        public Stream<String> localnames() {
-            return Arrays.stream(localnames);
-        }
-
-        @Override
-        public Stream<String> varnames() {
-            Spliterator<String> s =
-                    spliterator(CO_FAST_LOCAL, nvarnames, 0);
-            return StreamSupport.stream(s, false);
-        }
-
-        @Override
-        public Stream<String> cellvars() {
-            Spliterator<String> s =
-                    spliterator(CO_FAST_CELL, ncellvars, cell0);
-            return StreamSupport.stream(s, false);
-        }
-
-        @Override
-        public Stream<String> freevars() {
-            Spliterator<String> s = spliterator(CO_FAST_FREE, nfreevars,
-                    localnames.length - nfreevars);
-            return StreamSupport.stream(s, false);
-        }
-
-        @Override
-        public int nvarnames() { return nvarnames; }
-
-        /** @return the length of {@code co_cellvars} */
-        @Override
-        public int ncellvars() { return ncellvars; }
-
-        /** @return the length of {@code co_freevars} */
-        @Override
-        public int nfreevars() { return nfreevars; }
-
-        /**
-         * A {@code Spliterator} of local variable names of the kind
-         * indicated in the mask. The caller must specify where to start
-         * looking in the list and how many names there ought to be.
-         *
-         * @param mask single bit kind
-         * @param count how many of that kind
-         * @param start to start looking
-         * @return a spliterator of the names
-         */
-        private Spliterator<String> spliterator(final int mask,
-                final int count, int start) {
-            return new Spliterator<String>() {
-                private int i = start, remaining = count;
-
-                @Override
-                public boolean
-                        tryAdvance(Consumer<? super String> action) {
-                    if (remaining > 0) {
-                        while ((kinds[i++] & mask) == 0) {} // nothing
-                        action.accept(localnames[i - 1]);
-                        remaining -= 1;
-                        return true;
-                    } else
-                        return false;
-                }
-
-                @Override
-                public Spliterator<String> trySplit() { return null; }
-
-                @Override
-                public long estimateSize() { return count; }
-
-                @Override
-                public int characteristics() {
-                    return ORDERED | SIZED | IMMUTABLE;
-                }
-            };
+            // Nothing CPython-specific after all?
         }
     }
 
     // Plumbing -------------------------------------------------------
-
-    private static final String NAME_TUPLES_STRING =
-            "name tuple must contain only strings, not '%s' (in %s)";
-    private static final String LENGTHS_UNEQUAL =
-            "lengths unequal localspluskinds(%d) _localsplusnames(%d)";
-
-    private static final int CO_FAST_LOCAL = 0x20, CO_FAST_CELL = 0x40,
-            CO_FAST_FREE = 0x80;
 
     /**
      * Convert the contents of a Python {@code bytes} to 16-bit word

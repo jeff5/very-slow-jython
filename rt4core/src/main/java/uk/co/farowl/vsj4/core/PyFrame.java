@@ -23,7 +23,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * arguments laid out in an array. For example, the function
  * definition:<pre>
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
- *     v, w, x = b, c, d, e
+ *     u, v, w, x = b, c, d, e
  *     return u
  * </pre> the layout of the local variables in a frame would be as below
  * <table class="framed-layout" style="border: none;">
@@ -232,7 +232,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
      *
      * @return as a Java {@code Map}
      */
-    protected Map<Object, Object> localsMapOrNull() {
+    Map<Object, Object> localsMapOrNull() {
         if (locals == null) {
             return null;
         } else {
@@ -250,11 +250,11 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     abstract Object eval();
 
     /**
-     * Convert (or update) a dictionary representation of the local
-     * variables (including cell variables) held in
+     * Create (or update) a dictionary representation of the local
+     * variables (including cell variables) to be held in
      * {@link PyFrame#locals}. Each type of {@code frame} is free to use
      * its own internal representation of its local variables, but each
-     * must provide this conversion.
+     * must provide this method to set {@link #locals} from them.
      */
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c

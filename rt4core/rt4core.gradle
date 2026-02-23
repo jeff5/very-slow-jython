@@ -15,6 +15,10 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+
+    // https://stackoverflow.com/a/58845574 (Chriki) CC BY-SA 4.0
+    withSourcesJar()
+    withJavadocJar()
 }
 
 
