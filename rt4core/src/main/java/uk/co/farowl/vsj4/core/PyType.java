@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -12,7 +12,7 @@ import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.Feature;
-import uk.co.farowl.vsj4.types.NewInstance;
+import uk.co.farowl.vsj4.types.Constructible;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
@@ -30,7 +30,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * holds the single static instance of the Python type factory, which
  * comes into being upon first use of the {@code PyType} class.
  */
-public interface PyType extends NewInstance, WithClass, FastCall {
+public interface PyType extends Constructible, WithClass, FastCall {
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);

@@ -3,6 +3,8 @@
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodHandles.Lookup.ClassOption;
 import java.nio.ByteBuffer;
 import java.util.AbstractList;
 import java.util.Arrays;
@@ -224,6 +226,29 @@ public class PyBytes extends AbstractList<Integer>
      */
     public byte[] asByteArray() {
         return Arrays.copyOf(value, value.length);
+    }
+
+    /**
+     * Load the contents of this {@code bytes} object as a JVM class
+     * compiled from Python source. The supplied {@code Lookup} object
+     * must have sufficient privilege to define a class in the package
+     * that that the class definition claims to belong to.
+     * <p>
+     * This is the copy-free equivalent of: <pre>
+     * return lookup.defineHiddenClass(this.asByteArray(),
+     *         initialize, options);
+     * </pre>
+     *
+     * @param lookup with privilege to create the class
+     * @param initialize the class
+     * @param options passed on to {@code Lookup.defineHiddenClass}
+     * @return Lookup on the class defined by this {@code bytes}.
+     * @throws IllegalAccessException if the run-time lacks privilege
+     *     needed to create a class in the claimed package.
+     */
+    public Lookup defineHiddenClass(Lookup lookup, boolean initialize,
+            ClassOption... options) throws IllegalAccessException {
+        return lookup.defineHiddenClass(value, initialize, options);
     }
 
     // Plumbing -------------------------------------------------------

@@ -177,7 +177,7 @@ public abstract class PyCode implements WithClass {
      * and the arguments given to the {@code code} object constructor to
      * describe it.
      */
-    interface Layout {
+    public interface Layout {
 
         /** @return total number of local variables. */
         default int size() {

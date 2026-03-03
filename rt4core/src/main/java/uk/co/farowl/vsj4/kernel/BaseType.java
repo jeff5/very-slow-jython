@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -78,9 +79,14 @@ public abstract sealed class BaseType extends KernelType implements
     protected static final Logger logger =
             LoggerFactory.getLogger(BaseType.class);
 
-    /** Subclass factory} to use in creating subclasses. */
+    /** Write generated classes here. (Dump with {@code javap}.) */
+    // Make this null to turn of this debug output.
+    private static Path DEBUG_SUBCLASSES = Path.of("temp");
+
+    /** Subclass factory to use in creating subclasses. */
+    // Write generated classes as files. (Dump with {@code javap}.)
     static final SubclassFactory SUBCLASS_FACTORY =
-            new SubclassFactory("VSJ$%s$%d");
+            new SubclassFactory("VSJ$%s$%d", DEBUG_SUBCLASSES);
 
     /**
      * Name of the type. This is the name exposed as {@link #getName()

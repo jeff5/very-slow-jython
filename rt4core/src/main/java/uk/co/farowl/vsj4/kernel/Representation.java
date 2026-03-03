@@ -18,7 +18,7 @@ import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
-import uk.co.farowl.vsj4.types.NewInstance;
+import uk.co.farowl.vsj4.types.Constructible;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -42,7 +42,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * types), this mapping will be developed as instances of the classes
  * are encountered in Python code.
  */
-public abstract class Representation implements NewInstance {
+public abstract class Representation implements Constructible {
 
     /** Logger for representation object activity in the kernel. */
     protected static final Logger logger =

@@ -1,15 +1,16 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.subclass;
 
 import static org.objectweb.asm.Opcodes.*;
 
-import java.io.FileOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,9 +43,6 @@ import uk.co.farowl.vsj4.types.WithDictAssignment;
  */
 public class SubclassFactory {
 
-    /** Write generated classes as files. (Dump with {@code javap}.) */
-    private static boolean DEBUG_CLASSFILES = true;
-
     /** Logger for the subclass factory. */
     final Logger logger =
             LoggerFactory.getLogger(SubclassFactory.class);
@@ -52,12 +50,15 @@ public class SubclassFactory {
     /**
      * Lookup object allowing package-level access to generated classes.
      */
-    static final Lookup LOOKUP = MethodHandles.lookup();
+    private static final Lookup LOOKUP = MethodHandles.lookup();
 
     /** A prefix used in {@link SubclassBuilder#begin()}. */
     private final String subclassPkg;
     /** A name template used in {@link SubclassBuilder#begin()}. */
     private final String subclassNameTemplate;
+
+    /** Write generated classes as files. (Dump with {@code javap}.) */
+    private final Path debugPath;
 
     /**
      * The classes (actually, the lookup objects of those classes)
@@ -71,25 +72,48 @@ public class SubclassFactory {
     private static final int CLASSES_MAP_SIZE = 100;
 
     /**
-     * Create a factory that creates classes in the {@code subclasses}
-     * package, specifying a string format for generating class names,
-     * requiring one string and one integer (like {@code "JY$%s$%d"}).
-     * When creating a class, the package will be a subpackage
-     * ".subclasses" and the name generated from the simple name of the
-     * base class.
+     * Create a factory that manufactures classes but also writes them
+     * to a specified directory. Otherwise, exactly as
+     * {@link #SubclassFactory(String)}.
      *
      * @param subclassNameTemplate format of class names
+     * @param debugPath {@code null} or directory (path) at which to
+     *     write class definition files as they are created
      */
-    public SubclassFactory(String subclassNameTemplate) {
+    public SubclassFactory(String subclassNameTemplate,
+            Path debugPath) {
         // Convert package name for ASM: org/python/runtime/subclasses/
         String[] parts = getClass().getPackageName().split("\\.");
         this.subclassPkg = String.join("/", parts) + "/";
+
         // Pattern for class names
         this.subclassNameTemplate = subclassNameTemplate;
+
+        // Where to write class definition files for examination
+        if (debugPath != null) {
+            File dir = debugPath.toFile();
+            if (!dir.isDirectory()) { dir.mkdirs(); }
+        }
+        this.debugPath = debugPath;
+
         // Cache for classes we made already
         this.subclasses = new HashMap<>(CLASSES_MAP_SIZE * 2);
         logger.atInfo().setMessage("Subclass factory created for {}")
                 .addArgument(subclassPkg).log();
+    }
+
+    /**
+     * Create a factory that manufactures classes in the
+     * {@code subclasses} package, specifying a string format for
+     * generating class names, requiring one string and one integer
+     * (like {@code "JY$%s$%d"}). When creating a class, the package
+     * will be a subpackage ".subclasses" and the name generated from
+     * the simple name of the base class.
+     *
+     * @param subclassNameTemplate format of class names
+     */
+    public SubclassFactory(String subclassNameTemplate) {
+        this(subclassNameTemplate, null);
     }
 
     /**
@@ -116,15 +140,16 @@ public class SubclassFactory {
             sw.build();
             byte[] b = sw.toByteArray();
 
-            if (DEBUG_CLASSFILES) {
+            if (debugPath != null) {
                 // Write so we can dump it later.
-                String fn = spec.getName() + ".class";
-                logger.atTrace().setMessage("Writing {}")
-                        .addArgument(fn).log();
-                try (OutputStream f = new FileOutputStream(fn)) {
-                    f.write(b);
+                Path fp = debugPath.resolve(spec.getName() + ".class");
+                try {
+                    Files.write(fp, b);
+                    logger.atTrace().setMessage("Wrote {}")
+                            .addArgument(fp).log();
                 } catch (IOException e) {
-                    throw new InterpreterError(e, "writing class file");
+                    logger.atWarn().setMessage("Failed to write {}")
+                            .addArgument(fp).log();
                 }
             }
 
@@ -275,8 +300,6 @@ public class SubclassFactory {
         private final String baseName;
         private final String[] exceptions;
 
-        // private final MethodNode staticInit;
-
         /**
          * Create builder from specification.
          *
@@ -299,10 +322,6 @@ public class SubclassFactory {
             spec.setName(name);
             logger.atDebug().setMessage("Creating class for spec {}")
                     .addArgument(spec).log();
-            // We seem never to need a static initialisation section
-            // this.staticInit = new MethodNode(ACC_STATIC, "<clinit>",
-            // "()V", null, null);
-            // this.cn.methods.add(this.staticInit);
         }
 
         /**

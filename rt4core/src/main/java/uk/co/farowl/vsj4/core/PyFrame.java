@@ -250,11 +250,12 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     abstract Object eval();
 
     /**
-     * Create (or update) a dictionary representation of the local
-     * variables (including cell variables) to be held in
-     * {@link PyFrame#locals}. Each type of {@code frame} is free to use
-     * its own internal representation of its local variables, but each
-     * must provide this method to set {@link #locals} from them.
+     * Create (or update) a dictionary representation of the values of
+     * the local variables (including the values of cell variables) to
+     * be held in {@link PyFrame#locals}. Each type of {@code frame} is
+     * free to use its own internal representation of its local
+     * variables, but each must provide this method to set
+     * {@link #locals} from them.
      */
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c

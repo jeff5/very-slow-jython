@@ -474,7 +474,10 @@ public class PyFunction implements WithDict {
 
     // FastCall support ----------------------------------------------
 
-    // XXX ... is needed.
+    // Idea:
+    // TODO PyFrame implements FastCall: frame.call(*) sets params.
+    // So when the signature matches in Callables.call(), we can place
+    // the arguments directly and the frame wrapper need not be created.
 
     // Plumbing ------------------------------------------------------
 

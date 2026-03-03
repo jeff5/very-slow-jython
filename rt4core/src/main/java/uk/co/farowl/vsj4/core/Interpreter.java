@@ -33,7 +33,7 @@ public class Interpreter {
     public Interpreter() {
         builtinsModule = new BuiltinsModule();
         builtinsModule.exec();
-        // addModule(builtinsModule);
+        addModule(builtinsModule);
     }
 
     /**

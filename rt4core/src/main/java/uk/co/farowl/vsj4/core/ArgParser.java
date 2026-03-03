@@ -1315,8 +1315,9 @@ class ArgParser {
          * {@link PyCell} is replaced with {@code v}, whether that is a
          * cell or not. This is the correct choice when initialising a
          * CPython frame because the byte code begins by replacing the
-         * initial values with cells that contain them. If the other
-         * semantic is required, use {@code getLocal(i).set(v)}.
+         * initial value of each cell variable with a cell that contains
+         * them. If the other semantic is required, use
+         * {@code getLocal(i).set(v)}.
          */
         @Override
         void setLocal(int i, Object v) { vars[start + i] = v; }
