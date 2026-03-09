@@ -325,7 +325,9 @@ class BuiltinsModuleTest extends UnitTestSupport {
 
         /**
          * A Python frame representing the running state of the code. An
-         * instance is created by {@link Function#createFrame(Object)}.
+         * instance is created by a call to
+         * {@link Interpreter#eval(PyCode, PyDict, Object)} at the end
+         * of {@link TestFunctions#testExec()}.
          */
         class Frame extends PyFrame<ActionHolder> {
             /**

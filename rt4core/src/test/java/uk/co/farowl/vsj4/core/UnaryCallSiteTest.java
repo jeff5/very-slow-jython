@@ -590,8 +590,8 @@ class UnaryCallSiteTest extends UnitTestSupport {
     }
 
     /**
-     * Test a {@code __invert__} call site throws {@link TypeError} when
-     * applied to a {@code float}.
+     * Test a {@code __invert__} call site throws {@link PyBaseException
+     * TypeError} when applied to a {@code float}.
      */
     @SuppressWarnings("static-method")
     @Test

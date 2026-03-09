@@ -131,7 +131,7 @@ class JVM17FrameTest extends UnitTestSupport {
      * part, which every test must also supply, consists of the JVM byte
      * code for the {@code body()} method.
      */
-    record TestSetup(Layout311 layout, FrameClassBuilder builder,
+    record SetupArtefacts(Layout311 layout, FrameClassBuilder builder,
             EnumSet<CodeFlag> flags) {}
 
     /**
@@ -148,7 +148,7 @@ class JVM17FrameTest extends UnitTestSupport {
      *     referenced from this scope.
      * @return the layout
      */
-    static TestSetup setupFromParser(ArgParser parser,
+    static SetupArtefacts setupFromParser(ArgParser parser,
             List<String> cell, List<String> free) {
 
         // Make localsplusnames from (all) the parser names
@@ -190,7 +190,7 @@ class JVM17FrameTest extends UnitTestSupport {
                 FRAME_FACTORY.createBuilder(parser.name, layout);
 
         // Now return a bundle of these pieces needed by the test.
-        return new TestSetup(layout, builder, flags);
+        return new SetupArtefacts(layout, builder, flags);
     }
 
     /**
@@ -200,10 +200,16 @@ class JVM17FrameTest extends UnitTestSupport {
      * @param parser giving the function signature
      * @return the layout
      */
-    static TestSetup setupFromParser(ArgParser parser) {
+    static SetupArtefacts setupFromParser(ArgParser parser) {
         return setupFromParser(parser, null, null);
     }
 
+    /**
+     * Test a function that does nothing. Equivalent to:<pre>
+     * def no_body():
+     *     pass
+     * </pre>
+     */
     @Nested
     @DisplayName("with no body")
     @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -221,7 +227,7 @@ class JVM17FrameTest extends UnitTestSupport {
 
         @BeforeAll
         static void setCode() {
-            TestSetup ts = setupFromParser(PARSER);
+            SetupArtefacts ts = setupFromParser(PARSER);
             FrameClassBuilder builder = ts.builder;
 
             // Define the instructions in the body of body()
@@ -253,6 +259,13 @@ class JVM17FrameTest extends UnitTestSupport {
         }
     }
 
+    /**
+     * Test a function that returns its single argument. Equivalent
+     * to:<pre>
+     * def return_argument(v):
+     *     return v
+     * </pre>
+     */
     @Nested
     @DisplayName("that returns its argument")
     @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -270,7 +283,7 @@ class JVM17FrameTest extends UnitTestSupport {
         @BeforeAll
         static void setCode() {
             // Create frame class based on the parser
-            TestSetup ts = setupFromParser(PARSER);
+            SetupArtefacts ts = setupFromParser(PARSER);
             FrameClassBuilder builder = ts.builder;
 
             // Define the instructions in the body of body()
