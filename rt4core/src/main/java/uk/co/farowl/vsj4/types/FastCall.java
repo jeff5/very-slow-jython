@@ -169,6 +169,13 @@ public interface FastCall {
     }
 
     /**
+     * There are fast signatures for up to {@code MAX_POSITIONAL}
+     * arguments,
+     */
+    // If we add call(a,b,c,d,e) etc., increase this.
+    static final int MAX_POSITIONAL = 4;
+
+    /**
      * Invoke the target object with standard arguments, but where the
      * first argument is provided "loose". This is a frequent need when
      * that argument is the {@code self} object in a method call. The

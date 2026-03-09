@@ -7,25 +7,26 @@ import java.util.Map;
 
 import uk.co.farowl.vsj4.core.ArgParser.FrameWrapper;
 import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A {@code PyFrame} is the context for the execution of code. Different
- * concrete sub-classes of {@code PyFrame} exist to execute different
- * compiled representations of Python code and classes of function. For
- * example, there is one for CPython 3.11 byte code and (we expect)
+ * concrete sub-classes of {@code PyFrame} and {@link PyCode} exist to
+ * execute different compiled representations of Python code and classes
+ * of function. For example, there is one for CPython 3.11 byte code and
  * another for Java byte code compiled from Python. The type of code
  * object supported is the parameter {@code C} to the class.
  * <p>
  * In order that argument processing may be uniform irrespective of
- * concrete type, a {@code PyFrame} presents an abstraction that has
- * arguments laid out in an array. For example, the function
+ * concrete type, a {@code PyFrame} presents an abstraction that has the
+ * parameters laid out in an array. For example, given the function
  * definition:<pre>
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
  *     u, v, w, x = b, c, d, e
  *     return u
- * </pre> the layout of the local variables in a frame would be as below
+ * </pre> the layout of the variables in a frame could be this:
  * <table class="framed-layout" style="border: none;">
  * <caption>A Python {@code frame}</caption>
  * <tr>
@@ -59,24 +60,35 @@ import uk.co.farowl.vsj4.types.WithClass;
  * <td colspan=13></td>
  * </tr>
  * <tr>
- * <td class="label">function</td>
- * <td colspan=2></td>
+ * <td class="label" rowspan=2>function</td>
+ * <td colspan=2 style="border-style: none;"></td>
  * <td colspan=4>defaults</td>
- * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * <tr>
+ * <td colspan=4 style="border-style: none;"></td>
+ * <td colspan=5 style="border-style: dashed;">kwdefaults</td>
  * </tr>
  * </table>
  * <p>
- * In the last row of the table, the properties are supplied by the
- * function object during each call. {@code defaults} apply in the
- * position show, in order, while {@code kwdefaults} (in a map) apply to
- * keywords wherever the name matches. The names in the frame are those
- * in the {@link PyCode#co_varnames} field of the associated code
- * object.
+ * The last two rows of the table show where default arguments are
+ * supplied by the function object during each call. {@code defaults}
+ * apply in the position shown, in order, while {@code kwdefaults} (in a
+ * map) apply to keywords wherever the name matches a keyword parameter
+ * or a positional (but not positional-only) parameter. The names in the
+ * top row are variables to which the frame gives (logical) spaces.
+ * Variables in the frame have different designations according to their
+ * function, representation and origin. An important distinction is
+ * between those that store a reference to their value directly, and
+ * those that reference a {@link PyCell cell} shared with another frame.
  * <p>
- * The frame presents an abstraction of an array of named local
- * variables, and two more of cell and free variables, while concrete
- * subclasses are free to implement these in whatever manner they
- * choose.
+ * We caution the reader that while Python has gradually clarified the
+ * terms it uses to refer to variables in a frame, the names of the
+ * attributes of {@code frame} and {@code code} objects were chosen
+ * incrementally, long before that and are often misleading. Evidently
+ * there are more than {@code code.co_argcount} arguments (meaning
+ * parameters, really), {@code frame.f_locals} names more than just the
+ * "local variables", and not all the variables are named in
+ * {@code co_varnames}.
  *
  * @implNote In CPython, the equivalent {@code PyFrameObject}
  *     ({@code struct _frame}) is a Python object that is largely a
@@ -87,9 +99,14 @@ import uk.co.farowl.vsj4.types.WithClass;
  *     {@code PyThreadState}, but we haven't found a reason to copy this
  *     pattern in Java.
  *
+ * @implNote A Python frame is not callable, but we implement
+ *     {@link FastCall} to enable custom frame subclasses to provide a
+ *     fast path in {@code function.__call__}.
+ *
  * @param <C> The type of {@code PyCode} that this frame executes
  */
-public abstract class PyFrame<C extends PyCode> implements WithClass {
+public abstract class PyFrame<C extends PyCode>
+        implements WithClass, FastCall {
 
     /** The Python type {@code frame}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -172,9 +189,9 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     PyDict getGlobals() { return func.globals; }
 
     /**
-     * Get the local variables (name space) against which this frame is
-     * executing, exposed as read-only (but mutable) attribute
-     * {@code f_locals}. Not {@code null}.
+     * Get the local <i>and closure</i> variables (name space) against
+     * which this frame is executing, exposed as read-only (but mutable)
+     * attribute {@code f_locals}. Not {@code null}.
      *
      * @return the local name space.
      */
@@ -248,6 +265,23 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
      */
     // Compare CPython PyEval_EvalFrameEx in ceval.c
     abstract Object eval();
+
+    @Override
+    public Object call(Object[] args, String[] names)
+            throws ArgumentError, Throwable {
+        // Fill the local variables that are arguments
+        ArgParser.FrameWrapper wrapper = getWrapper();
+        func.getArgParser().parseToFrame(wrapper, args, names);
+        // Run the frame
+        return eval();
+    }
+
+    @Override
+    public PyBaseException typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        // We can use the default message format, adding only the name.
+        return FastCall.typeError(getCode().name, ae, args, names);
+    }
 
     /**
      * Create (or update) a dictionary representation of the values of

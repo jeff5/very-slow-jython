@@ -269,6 +269,24 @@ class BuiltinsModuleTest extends UnitTestSupport {
 
             @Override
             public boolean isFree(int index) { return false; }
+
+            @Override
+            public int argcount() { return 0; }
+
+            @Override
+            public int posonlyargcount() { return 0; }
+
+            @Override
+            public int kwonlyargcount() { return 0; }
+
+            @Override
+            public int positionalCollector() { return -1; }
+
+            @Override
+            public int keywordCollector() { return -1; }
+
+            @Override
+            public int nlocals() { return 0; }
         };
 
         /**
@@ -279,7 +297,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
         public ActionHolder(String name) {
             // No arguments, variables, etc..
             super(FILE, name, name, EnumSet.noneOf(CodeFlag.class), 0,
-                    E, N, 0, 0, 0);
+                    E, N);
         }
 
         @Override

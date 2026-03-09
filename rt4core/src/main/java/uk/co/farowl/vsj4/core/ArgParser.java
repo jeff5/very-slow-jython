@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.core;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,10 +61,10 @@ import uk.co.farowl.vsj4.types.Exposed;
  * <p>
  * When parsed to an array, the layout of the argument values, in
  * relation to fields of the parser will be as follows.
- * <table class="lined">
+ * <table class="framed-layout" style="border: none;">
  * <caption>A Python {@code frame}</caption>
  * <tr>
- * <td class="row-label">names</td>
+ * <td class="label">names</td>
  * <td>a</td>
  * <td>b</td>
  * <td>c</td>
@@ -77,15 +78,18 @@ import uk.co.farowl.vsj4.types.Exposed;
  * <td>kk</td>
  * </tr>
  * <tr>
- * <td class="row-label" rowspan=3>layout</td>
+ * <td class="label" rowspan=3>layout</td>
  * <td colspan=4>posOnly</td>
  * <td colspan=2></td>
  * <td colspan=3>kwOnly</td>
  * </tr>
  * <tr>
- * <td colspan=2></td>
+ * <td colspan=2 style="border-style: none;"></td>
  * <td colspan=4>defaults</td>
- * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * <tr>
+ * <td colspan=4 style="border-style: none;"></td>
+ * <td colspan=5 style="border-style: dashed;">kwdefaults</td>
  * </tr>
  * </table>
  * <p>
@@ -134,7 +138,8 @@ class ArgParser {
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
      * <p>
      * It is often is longer since it suits us to re-use an array that
-     * names all the local variables of a frame.
+     * names all the local variables of a frame. See
+     * {@link #parameters}.
      */
     /*
      * Here and elsewhere we use the same field names as the CPython
@@ -144,6 +149,14 @@ class ArgParser {
      * by an argument given by position.
      */
     final String[] argnames;
+
+    /**
+     * Names of parameters that could be satisfied by position or
+     * keyword, including the collector parameters as an unmodifiable
+     * list. The size is: {@code argcount + kwonlyargcount
+                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
+     */
+    final List<String> parameters;
 
     /**
      * The number of positional or keyword parameters, excluding the
@@ -297,8 +310,10 @@ class ArgParser {
         this.varArgsIndex = varargs ? N++ : -1;
         this.varKeywordsIndex = varkw ? N++ : -1;
 
-        assert argnames.length >= argcount + kwonlyargcount
-                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
+        // N is the total number of parameters inc varargs, varkwargs
+        assert argnames.length >= N;
+        this.parameters = Collections.unmodifiableList(
+                Arrays.asList(argnames).subList(0, N));
     }
 
     /**

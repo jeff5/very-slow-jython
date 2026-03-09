@@ -7,7 +7,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.core.CPython311Code.CPythonLayout;
 import uk.co.farowl.vsj4.core.PyCode.Layout;
 import uk.co.farowl.vsj4.core.PyDict.MergeMode;
 import uk.co.farowl.vsj4.internal.EmptyException;
@@ -459,7 +458,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                          * Fill locals from the function closure. The
                          * compiler inserts this in code that needs it.
                          */
-                        CPythonLayout layout = code.layout;
+                        Layout311 layout = code.layout;
                         assert oparg == layout.nfreevars;
                         System.arraycopy(func.closure, 0, fastlocals,
                                 layout.free0, layout.nfreevars);

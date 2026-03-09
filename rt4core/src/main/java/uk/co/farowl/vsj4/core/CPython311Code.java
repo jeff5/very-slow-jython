@@ -11,14 +11,14 @@ import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
  * A concrete implementation of the Python v3.11 {@code code} object
  * ({@code PyCodeObject} in CPython's C API).
  */
-public class CPython311Code extends PyCode311 {
+public class CPython311Code extends PyCode {
 
     /**
      * Describe the layout of the frame local variables (including
      * arguments), cell and free variables allowing implementation-level
      * access to CPython-specific features.
      */
-    final CPythonLayout layout;
+    final Layout311 layout;
 
     /**
      * Instruction opcodes, not {@code null}. Treat these as unsigned
@@ -57,7 +57,8 @@ public class CPython311Code extends PyCode311 {
      * @param filename {@code co_filename}
      * @param name {@code co_name}
      * @param qualname {@code co_qualname}
-     * @param flags {@code co_flags} a set of code flags
+     * @param flags {@code co_flags} a set of flags identifying various
+     *     (boolean) traits of the code object
      *
      * @param wordcode {@code co_code} as unsigned 16-bit words
      * @param firstlineno first source line of this code
@@ -70,14 +71,6 @@ public class CPython311Code extends PyCode311 {
      *     {@code co_varnames + co_cellvars + co_freevars} but without
      *     repetition.
      *
-     * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only parameters and those
-     *     with default values)
-     * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only parameters (including those with default
-     *     values)
-     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only parameters (including those with default values)
      *
      * @param stacksize {@code co_stacksize}
      * @param exceptiontable supports exception processing
@@ -92,17 +85,14 @@ public class CPython311Code extends PyCode311 {
             // Used by the code
             Object[] consts, String[] names,
             // Mapping frame offsets to information
-            CPythonLayout layout,
-            // Parameter navigation with varnames
-            int argcount, int posonlyargcount, int kwonlyargcount,
+            Layout311 layout,
             // Needed to support execution
             int stacksize, byte[] exceptiontable) {
 
         // Most of the arguments are applicable to any PyCode
         super(filename, name, qualname, flags, //
                 firstlineno, //
-                consts, names, //
-                argcount, posonlyargcount, kwonlyargcount);
+                consts, names);
 
         // A few are CPython-specific (tentatively these).
         this.layout = layout;
@@ -182,8 +172,9 @@ public class CPython311Code extends PyCode311 {
         String[] _names = names(names, "names");
 
         // Compute a layout from localsplus* arrays
-        CPythonLayout _layout =
-                new CPythonLayout(localsplusnames, localspluskinds);
+        Layout311 _layout = new Layout311(localsplusnames,
+                localspluskinds, argcount, posonlyargcount,
+                kwonlyargcount, _flags);
 
         PyBytes _linetable = castBytes(linetable, "linetable");
         PyBytes _exceptiontable =
@@ -196,7 +187,6 @@ public class CPython311Code extends PyCode311 {
                 _linetable.asByteArray(), //
                 _consts.toArray(), _names, //
                 _layout, //
-                argcount, posonlyargcount, kwonlyargcount, //
                 stacksize, _exceptiontable.asByteArray());
     }
 
@@ -224,31 +214,7 @@ public class CPython311Code extends PyCode311 {
     }
 
     @Override
-    CPythonLayout layout() { return layout; }
-
-    /**
-     * Store information about the variables required by a
-     * {@link CPython311Code} object and where they will be stored in
-     * the frame it creates.
-     */
-    final static class CPythonLayout extends Layout311 {
-        /**
-         * Construct a {@code Layout} based on a representation used
-         * internally by CPython that appears in the stream
-         * {@code marshal} writes, e.g. in a {@code .pyc} file.
-         *
-         * @param localsplusnames tuple of all the names
-         * @param localspluskinds bytes of kinds of variables
-         */
-        CPythonLayout(
-                // Mapping frame offsets to information
-                Object localsplusnames, Object localspluskinds) {
-
-            super(localsplusnames, localspluskinds);
-
-            // Nothing CPython-specific after all?
-        }
-    }
+    Layout311 layout() { return layout; }
 
     // Plumbing -------------------------------------------------------
 

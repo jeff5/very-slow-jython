@@ -80,7 +80,7 @@ public abstract sealed class BaseType extends KernelType implements
             LoggerFactory.getLogger(BaseType.class);
 
     /** Write generated classes here. (Dump with {@code javap}.) */
-    // Make this null to turn of this debug output.
+    // Make this null to turn off this debug output.
     private static Path DEBUG_SUBCLASSES = Path.of("temp");
 
     /** Subclass factory to use in creating subclasses. */

@@ -34,6 +34,18 @@ import uk.co.farowl.vsj4.types.WithClass;
  * from one version to the next. We provide get-methods matching all
  * those of CPython, and each concrete class can override them where
  * meaningful.
+ * <p>
+ * We caution the reader that while Python has gradually clarified the
+ * terms it uses to refer to frame variables, the names of the
+ * attributes of {@code frame} and {@code code} objects were chosen a
+ * long time earlier and often prove misleading.
+ */
+// FIXME Python attribute names misled the implementation (I think)
+/*
+ * Fix the documentation. Even CPython has this wrong in places. In the
+ * end, we may have to reverse-engineer CPython (again). Document it
+ * correctly, then the implementation, matching both to the behaviour of
+ * CPython.
  */
 // Compare CPython PyCodeObject in codeobject.c
 public abstract class PyCode implements WithClass {
@@ -41,6 +53,7 @@ public abstract class PyCode implements WithClass {
     /** The Python type {@code code}. */
     public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("code", MethodHandles.lookup()));
+
     /*
      * It is not easy to say, while there is only one concrete sub-class
      * to learn from, which attributes may safely be be in the base, and
@@ -62,16 +75,6 @@ public abstract class PyCode implements WithClass {
     @Member("co_qualname")
     final String qualname;
 
-    /** Number of positional parameters (not counting {@code *args}). */
-    @Member("co_argcount")
-    final int argcount;
-    /** Number of positional-only parameters. */
-    @Member("co_posonlyargcount")
-    final int posonlyargcount;
-    /** Number of keyword-only parameters. */
-    @Member("co_kwonlyargcount")
-    final int kwonlyargcount;
-
     /** First source line number of this code. */
     final int firstlineno;
 
@@ -81,7 +84,6 @@ public abstract class PyCode implements WithClass {
     /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
-    // Construct with arrays not tuples.
     /**
      * Constructor for the common base of Python {@code code} objects.
      * Where the parameters map directly to an attribute of the code
@@ -103,18 +105,8 @@ public abstract class PyCode implements WithClass {
      *
      * @param consts {@code co_consts}
      * @param names {@code co_names}
-     *
-     * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only parameters)
-     * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only parameters (including those with default
-     *     values)
-     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only parameters (including those with default values)
      */
     public PyCode( //
-            // Grouped as _PyCodeConstructor in pycore_code.h
-
             // Metadata
             String filename, String name, String qualname, //
             EnumSet<CodeFlag> flags,
@@ -123,21 +115,8 @@ public abstract class PyCode implements WithClass {
             int firstlineno,
 
             // Constants used by the code
-            Object[] consts, String[] names, //
-
-            // Parameter navigation within varnames
-            int argcount, int posonlyargcount, int kwonlyargcount) {
-
-        if (argcount < posonlyargcount || posonlyargcount < 0
-                || kwonlyargcount < 0) {
-            throw PyErr.format(PyExc.ValueError,
-                    "code: argument counts inconsistent");
-        }
-
-        this.argcount = argcount;
-        this.posonlyargcount = posonlyargcount;
-        this.kwonlyargcount = kwonlyargcount;
-
+            Object[] consts, String[] names //
+    ) {
         this.flags = flags;
         this.consts = consts;
 
@@ -160,10 +139,10 @@ public abstract class PyCode implements WithClass {
     /**
      * Interface on a store of information about the variables required
      * by a code object and where they will be stored in the frame it
-     * creates. This interface abstracts the the storage layout of any
+     * creates. This interface abstracts the storage layout of any
      * concrete implementation of {@link PyCode} or {@link PyFrame} and
-     * the description the former must be able to make of its local
-     * variables in the Python API of a {@code code} object.
+     * the description the {@code code} object must be able to make of
+     * its local variables in the Python API.
      * <p>
      * It is used to initialise the {@code frame} of a function call, to
      * compute the name tuples of a {@link PyCode}, and to construct the
@@ -173,20 +152,30 @@ public abstract class PyCode implements WithClass {
      * some other version.
      * <p>
      * Most of the difference between the code objects for different
-     * versions of Python is in structure of the the associated frame,
+     * versions of Python is in the structure of the associated frame,
      * and the arguments given to the {@code code} object constructor to
      * describe it.
      */
+    // TODO slim this down and replace Stream with Iterator.
+    // Also, fix nomenclature: not "local variables".
     public interface Layout {
 
-        /** @return total number of local variables. */
+        /**
+         * Return the total number of local {@code and closure}
+         * variables. This is all the variable from which a frame must
+         * allocate space for reference, whether to a value or to a
+         * cell.
+         *
+         * @return total number of local and closure variables.
+         */
         default int size() {
             // This can't overflow since it is the size of an array.
             return (int)localnames().count();
         }
 
         /**
-         * Return name of one local frame variable.
+         * Return name of one local frame variable by index. The maximum
+         * valid index is {@link #size()}-1.
          *
          * @param index of variable
          * @return name of one variable.
@@ -220,8 +209,8 @@ public abstract class PyCode implements WithClass {
 
         /**
          * The variable at the given index is defined in an outer scope
-         * and referenced from an this scope. It will be implemented in
-         * a {@link PyCell}. It will appear in
+         * and referenced from this scope. It will be implemented in a
+         * {@link PyCell}. It will appear in
          * {@link PyCode#co_freevars()}.
          *
          * @param index of variable
@@ -299,6 +288,55 @@ public abstract class PyCode implements WithClass {
             // This can't overflow since it is the size of an array.
             return (int)freevars().count();
         }
+
+        /**
+         * The number of positional parameters.
+         *
+         * @return {@code co_argcount}
+         */
+        int argcount();
+
+        /**
+         * The number of positional-only parameters.
+         *
+         * @return {@code co_posonlyargcount}
+         */
+        int posonlyargcount();
+
+        /**
+         * The number ofkeyword-only parameters.
+         *
+         * @return {@code co_kwonlyargcount}
+         */
+        int kwonlyargcount();
+
+        /**
+         * The index of the collector for excess arguments given by
+         * position in the (logical) local variables of the related code
+         * object when it is used as the body of a function, or -1 if it
+         * doesn't have such a collector.
+         *
+         * @return the index of *args
+         */
+        int positionalCollector();
+
+        /**
+         * The index of the collector for excess arguments given by
+         * keyword in the (logical) local variables of the related code
+         * object when it is used as the body of a function, or -1 if it
+         * doesn't have such a collector.
+         *
+         * @return the index of **kwargs
+         */
+        int keywordCollector();
+
+        /**
+         * The total number of local variables (to which a logical index
+         * has been assigned).
+         *
+         * @return {@code co_nlocals}
+         */
+        int nlocals();
     }
 
     /**
@@ -327,14 +365,59 @@ public abstract class PyCode implements WithClass {
     ArgParser buildParser() {
         String[] localnames =
                 layout().localnames().toArray(String[]::new);
-        int regargcount = argcount + kwonlyargcount;
+        int regargcount = argcount() + kwonlyargcount();
         return new ArgParser(name, localnames, regargcount,
-                posonlyargcount, kwonlyargcount,
+                posonlyargcount(), kwonlyargcount(),
                 flags.contains(CodeFlag.VARARGS),
                 flags.contains(CodeFlag.VARKEYWORDS));
     }
 
+    // TODO code.__new__ considering this is an abstract class
+
     // Attributes ----------------------------------------------------
+
+    /*
+     * These attributes, which are the counts of argument types and
+     * local variables, are read-only members in CPython (@Member), but
+     * we make them attributes so that we may read them from the layout
+     * object.
+     */
+    /**
+     * The number of parameters that could be given by position.
+     *
+     * @return number of positional parameters
+     */
+    @Getter("co_argcount")
+    final int argcount() { return layout().argcount(); }
+
+    /**
+     * The number of positional-only parameters.
+     *
+     * @return number of positional-only parameters
+     */
+    @Getter("co_posonlyargcount")
+    final int posonlyargcount() { return layout().posonlyargcount(); }
+
+    /**
+     * The number of keyword-only parameters.
+     *
+     * @return number of keyword-only parameters
+     */
+    @Getter("co_kwonlyargcount")
+    final int kwonlyargcount() { return layout().kwonlyargcount(); }
+
+    /**
+     * The number of local variables including parameters.
+     *
+     * @return number of local variables
+     */
+    @Getter("co_nlocals")
+    final int nlocals() { return layout().nlocals(); }
+
+    /*
+     * These attributes are read-only attributes in CPython too, and
+     * exposed using @Getter.
+     */
 
     /**
      * Get required stack size of the code object for CPython bytecode.

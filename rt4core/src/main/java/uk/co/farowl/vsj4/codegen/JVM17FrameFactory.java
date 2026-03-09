@@ -12,13 +12,11 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -60,12 +58,13 @@ public class JVM17FrameFactory {
     private static final Class<?> BASE_CLASS = JVM17Frame.class;
 
     private static final Constructor<?> BASE_CONSTRUCTOR;
-    private static final Method BODY_METHOD;
+    private static final Method BODY_METHOD, EVAL_METHOD;
     static {
         try {
             BASE_CONSTRUCTOR = BASE_CLASS.getConstructor(
                     PyFunction.class, JVM17Code.class, Object.class);
             BODY_METHOD = BASE_CLASS.getMethod("body");
+            EVAL_METHOD = BASE_CLASS.getMethod("eval");
         } catch (NoSuchMethodException | SecurityException e) {
             throw new InterpreterError(e,
                     "Failed to initialise JVM17FrameFactory");
@@ -74,8 +73,6 @@ public class JVM17FrameFactory {
 
     /** A prefix used in {@link FrameClassBuilder#begin()}. */
     private final String subclassPkg;
-    /** A name template used in {@link FrameClassBuilder#begin()}. */
-    private final String nameTemplate;
 
     /** Write generated classes as files. (Dump with {@code javap}.) */
     private final Path debugPath;
@@ -83,13 +80,12 @@ public class JVM17FrameFactory {
     /**
      * Create a factory that creates classes in the {@code subclasses}
      * package, but also writes them to a specified directory.
-     * Otherwise, exactly as {@link #JVM17FrameFactory(String)}.
+     * Otherwise, exactly as {@link #JVM17FrameFactory()}.
      *
-     * @param nameTemplate format of class names
      * @param debugPath {@code null} or directory (path) at which to
      *     write class definition files as they are created
      */
-    public JVM17FrameFactory(String nameTemplate, Path debugPath) {
+    public JVM17FrameFactory(Path debugPath) {
 
         // Convert package name for ASM: org/python/runtime/compiled/
         String[] parts =
@@ -104,82 +100,44 @@ public class JVM17FrameFactory {
         this.debugPath = debugPath;
 
         // Pattern for class names
-        this.nameTemplate = nameTemplate;
         logger.atInfo().setMessage("Frame class factory created for {}")
                 .addArgument(subclassPkg).log();
     }
 
     /**
      * Create a factory that manufactures classes in the
-     * {@code compiled} package, specifying a string format for
-     * generating class names, requiring one string and one integer
-     * (like {@code "%s_FRM%d"}). When creating a class, the name
-     * generated from the simple name of the code and a meaningless
-     * unique number.
-     *
-     * @param nameTemplate format of class names
+     * {@code compiled} package. When generating a class, the class name
+     * is the simple name of the code.
      */
-    public JVM17FrameFactory(String nameTemplate) {
-        this(nameTemplate, null);
-    }
-
-    /**
-     * We name each class we synthesise after its Java base type, with a
-     * one-up number. This table must only be accessed when holding a
-     * lock on this instance of {@code SubclassFactory}.
-     */
-    private final Map<String, AtomicInteger> unique = new HashMap<>();
+    public JVM17FrameFactory() { this(null); }
 
     /**
      * Create a builder for a the frame class supporting the given
      * layout. The builder requires the client to supply the body
-     * (behaviour) of the frame by by compiling Python source or
-     * otherwise.
+     * (behaviour) of the frame by compiling Python source or otherwise.
      *
-     * @param name of the code object (for debugging)
+     * @param name of the class class (and code object)
      * @param layout of the required class
-     * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only parameters and those
-     *     with default values)
-     * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only parameters (including those with default
-     *     values)
-     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only parameters (including those with default values)
      * @return compiled code frame class
      */
-    public FrameClassBuilder createBuilder(String name, Layout layout,
-            int argcount, int posonlyargcount, int kwonlyargcount) {
+    public FrameClassBuilder createBuilder(String name, Layout layout) {
 
         // Make a builder for the required class
-        FrameClassBuilder builder = new FrameClassBuilder(name, layout,
-                argcount, posonlyargcount, kwonlyargcount);
+        FrameClassBuilder builder = new FrameClassBuilder(name, layout);
+        int nargs = layout.argcount(), nkw = layout.kwonlyargcount();
 
         // These stages are called separately for readability
         builder.begin();
         builder.addLocalVariables();
         builder.addConstructor();
         builder.addPartialBody();
-        builder.addCall();
+
+        if (nkw == 0 && nargs <= FastCall.MAX_POSITIONAL) {
+            // FastCall support is possible
+            builder.addCall(nargs);
+        }
 
         return builder;
-    }
-
-    /**
-     * We name each class we synthesise after its Java base type, with a
-     * one-up number.
-     *
-     * @param baseName name of the base (to extend)
-     * @return chosen unique name
-     */
-    private synchronized String uniqueName(String baseName) {
-        AtomicInteger id = unique.get(baseName);
-        if (id == null) {
-            id = new AtomicInteger();
-            unique.put(baseName, id);
-        }
-        int n = id.incrementAndGet();
-        return String.format(nameTemplate, baseName, n);
     }
 
     /** Description of a field with elements in internal format. */
@@ -247,9 +205,6 @@ public class JVM17FrameFactory {
 
         private final String name;
         private final Layout layout;
-        private final int argcount;
-        private final int posonlyargcount;
-        private final int kwonlyargcount;
         private final ClassNode cn;
 
         private MethodNode body;
@@ -258,42 +213,51 @@ public class JVM17FrameFactory {
          * Create builder from specification.
          *
          * @param name of the code object (for debugging)
-         * @param layout variable names and properties, in the order
-         *     {@code co_varnames + co_cellvars + co_freevars} but
+         * @param layout frame variable names and properties, in the
+         *     order {@code co_varnames + co_cellvars + co_freevars} but
          *     without repetition.
-         * @param argcount {@code co_argcount} the number of positional
-         *     parameters (including positional-only parameters and
-         *     those with default values)
-         * @param posonlyargcount {@code co_posonlyargcount} the number
-         *     of positional-only parameters (including those with
-         *     default values)
-         * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-         *     keyword-only parameters (including those with default
-         *     values)
          */
-        FrameClassBuilder(String name, Layout layout, int argcount,
-                int posonlyargcount, int kwonlyargcount) {
+        FrameClassBuilder(String name, Layout layout) {
             this.name = name;
             this.layout = layout;
-            this.argcount = argcount;
-            this.posonlyargcount = posonlyargcount;
-            this.kwonlyargcount = kwonlyargcount;
-
             this.cn = new ClassNode();
-
-            logger.atDebug().setMessage("Creating frame for {}")
+            logger.atDebug().setMessage("Creating frame class for {}")
                     .addArgument(name).log();
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s%s->%s", name, layout, cn.name);
         }
 
         /**
          * Return the body method as an ASM {@code MethodNode}
          * describing the implementation of {@link PyFrame}. This is the
-         * only method into which the user should insert code. The body
-         * method
+         * only method into which the client should insert code. The
+         * body method defined the behaviour of the corresponding code
+         * object.
          *
          * @return the body node
          */
         public MethodNode getBody() { return body; }
+
+        /**
+         * Return the internal name of class being built.
+         *
+         * @return the name
+         */
+        public String getFrameClassName() { return cn.name; }
+
+        /**
+         * Return the class being built method as an ASM
+         * {@code ClassNode} a sub-class of {@link PyFrame}. The client
+         * should probably only use this to access attributes.
+         * Manipulating the class under construction may have unexpected
+         * results.
+         *
+         * @return the body node
+         */
+        public ClassNode getFrameClass() { return cn; }
 
         /**
          * Get the class definition as a JVM byte code file in a
@@ -339,15 +303,6 @@ public class JVM17FrameFactory {
         }
 
         /**
-         * Add fields to store the local variables referenced by the
-         * Python code. All the fields have type {@code Object} or
-         * {@link PyCell}, according to the types in {@link #layout}.
-         */
-        void addLocalVariables() {
-            // TODO add local variable fields
-        }
-
-        /**
          * Synthesise a constructor for this class. The signature is
          * always the same as the base {@link JVM17Frame}, and we simply
          * pass on the arguments unchanged.
@@ -378,13 +333,22 @@ public class JVM17FrameFactory {
         }
 
         /**
-         * Add a field according to the specification given.
-         *
-         * @param field specifying the field
+         * Add fields to store the local variables referenced by the
+         * Python code. All the fields have type {@code Object} or
+         * {@link PyCell}, according to the types in {@link #layout}.
          */
-        private void addField(FieldDescr field) {
-            cn.fields.add(new FieldNode(field.access, field.name,
-                    field.descr, null, null));
+        void addLocalVariables() {
+            int n = layout.size();
+            for (int index = 0; index < n; index++) {
+                String name = layout.name(index);
+                if (layout.isCellOrFree(index)) {
+                    // This should be a PyCell
+                    addCellField(name);
+                } else {
+                    // This should be a plain Object
+                    addObjectField(name);
+                }
+            }
         }
 
         /**
@@ -395,11 +359,22 @@ public class JVM17FrameFactory {
          *
          * @param name of the field to create
          */
-        private void addObjectAttr(String name) {
-            // Add a field
-            FieldDescr field = new FieldDescr(name, Object.class);
-            cn.fields.add(new FieldNode(ACC_PRIVATE, field.name,
-                    field.descr, null, null));
+        private void addObjectField(String name) {
+            cn.fields.add(new FieldNode(ACC_PRIVATE, name,
+                    OBJECT_CLASS_DESCR, null, null));
+        }
+
+        /**
+         * Add a field with {@code PyCell} type as needed for a local
+         * variable (named in {@link #layout}). The field has private
+         * access so that only the variable handles generated by the
+         * class itself may be used to access them.
+         *
+         * @param name of the field to create
+         */
+        private void addCellField(String name) {
+            cn.fields.add(new FieldNode(ACC_PRIVATE, name,
+                    PY_CELL_CLASS_DESCR, null, null));
         }
 
         /**
@@ -415,23 +390,66 @@ public class JVM17FrameFactory {
         }
 
         /**
-         * Add a method that will call {@code eval()} with exactly the
-         * right parameters filled in by a fast path.
+         * Add a method that will populate the frame with exactly the
+         * right parameters, filled in by a fast path, and will then
+         * call {@code eval()} directly. We only make one of these when
+         * the code is for a function with a fixed (small) number
+         * parameters that may be given by position, and the function
+         * will only call it when exactly that many arguments have been
+         * supplied by position.
+         *
+         * @param n the number of parameters
          */
-        void addCall() {
-            // FIXME Is this the right signature?
-            String descr = CALL_DESCR[argcount];
+        void addCall(int n) {
+            // Create a descriptor for a method with n Object params
+            StringBuilder descr = new StringBuilder(200);
+            descr.append('(');
+            for (int i = 0; i < n; i++) {
+                descr.append(OBJECT_CLASS_DESCR);
+            }
+            descr.append(')').append(OBJECT_CLASS_DESCR);
 
-            MethodNode call = new MethodNode(ACC_PUBLIC, "call", descr,
-                    null, BODY_EXCEPTIONS);
+            // The method itself is sets first n fields by name
+            MethodNode call = new MethodNode(ACC_PUBLIC, "call",
+                    descr.toString(), null, CALL_EXCEPTIONS);
+            InsnList ins = call.instructions;
+            ins.add(new VarInsnNode(ALOAD, 0));
+            for (int i = 0; i < n; i++) {
+                ins.add(new InsnNode(DUP)); // this
+                ins.add(new VarInsnNode(ALOAD, i + 1)); // i.th arg
+                FieldNode f = cn.fields.get(i); // i.th local variable
+                ins.add(new FieldInsnNode(PUTFIELD, cn.name, f.name,
+                        OBJECT_CLASS_DESCR));
+            }
+            // stack = [this]
+
+            // return eval();
+            ins.add(new MethodInsnNode(INVOKEVIRTUAL, BASE_CLASS_NAME,
+                    "eval", EVAL_DESCR));
+            ins.add(new InsnNode(ARETURN));
+
+            // Add the call(a1...an) method to the class
+            cn.methods.add(call);
         }
 
-        /** Final actions on the builder before */
+        /**
+         * Final actions on the builder before we create a class
+         * definition (bytes).
+         */
         void end() {
-            // Finish static section
-            // InsnList ins = staticInit.instructions;
-            // ins.add(new InsnNode(RETURN));
+            // Finish static section?
+            // Anything else?
         }
+
+        private static final String OBJECT_CLASS_NAME =
+                Type.getInternalName(Object.class);
+        private static final String OBJECT_CLASS_DESCR =
+                Type.getDescriptor(Object.class);
+
+        private static final String PY_CELL_CLASS_NAME =
+                Type.getInternalName(PyCell.class);
+        private static final String PY_CELL_CLASS_DESCR =
+                Type.getDescriptor(PyCell.class);
 
         private static final String THROWABLE_NAME =
                 Type.getInternalName(Throwable.class);
@@ -448,27 +466,10 @@ public class JVM17FrameFactory {
         private static final String[] BODY_EXCEPTIONS =
                 new String[] {THROWABLE_NAME};
 
-        /**
-         * CALL_DESCR[n] is the JVM descriptor for a
-         * {@link FastCall#call(Object, Object, Object, Object)
-         * FastCall.call} with {@code n} positional parameters.
-         */
-        private static final String[] CALL_DESCR = {callDescr(0),
-                callDescr(1), callDescr(1), callDescr(1)};
+        private static final String EVAL_DESCR =
+                Type.getMethodDescriptor(EVAL_METHOD);
+
         private static final String[] CALL_EXCEPTIONS =
                 new String[] {ARGUMENT_ERROR_NAME, THROWABLE_NAME};
-
-        /**
-         * Compose the method descriptor string for a method with
-         * {@code n} parameters of type {@code Object}, returning
-         * {@code Object}.
-         *
-         * @param n number of parameters
-         * @return the descriptor
-         */
-        private static String callDescr(int n) {
-            final String obj = "Ljava/lang/Object;";
-            return "(" + obj.repeat(n) + ")" + obj;
-        }
     }
 }

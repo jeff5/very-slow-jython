@@ -19,13 +19,13 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * which will be initialised in an instance this class. The
  * corresponding frame is implement
  */
-public class JVM17Code extends PyCode311 {
+public class JVM17Code extends PyCode {
     /**
      * Describe the layout of the frame local variables (including
      * arguments), cell and free variables allowing implementation-level
      * access to CPython-specific features.
      */
-    final JVM17Layout layout;
+    final Layout311 layout;
 
     /** JVM byte code (class definition). */
     final PyBytes bytecode;
@@ -79,17 +79,7 @@ public class JVM17Code extends PyCode311 {
      * @param consts {@code co_consts}
      * @param names {@code co_names}
      *
-     * @param localsplusnames ({@code tuple[str]}) variable names
-     * @param localspluskinds ({@code bytes}) variable kinds
-     *
-     * @param argcount {@code co_argcount} the number of positional
-     *     parameters (including positional-only parameters and those
-     *     with default values)
-     * @param posonlyargcount {@code co_posonlyargcount} the number of
-     *     positional-only parameters (including those with default
-     *     values)
-     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
-     *     keyword-only parameters (including those with default values)
+     * @param layout frame variable names and properties
      */
     JVM17Code(
             // Grouped as _PyCodeConstructor in pycore_code.h
@@ -105,16 +95,12 @@ public class JVM17Code extends PyCode311 {
             Object[] consts, String[] names, //
 
             // Mapping frame offsets to information
-            Object localsplusnames, Object localspluskinds,
-
-            // Parameter navigation with varnames
-            int argcount, int posonlyargcount, int kwonlyargcount) {
+            Layout311 layout) {
 
         // Most of the arguments are applicable to any PyCode
         super(filename, name, qualname, flags, //
                 firstlineno, //
-                consts, names, //
-                argcount, posonlyargcount, kwonlyargcount);
+                consts, names);
 
         // A few are JVM-specific (tentatively these).
 
@@ -122,13 +108,13 @@ public class JVM17Code extends PyCode311 {
         this.linetable = linetable;
 
         // Compute a layout from localsplus* arrays etc.
-        this.layout = new JVM17Layout(localsplusnames, localspluskinds);
+        this.layout = layout;
 
         // Create a class for the actual frame type
         try {
             this.frameClassLookup = CompiledClasses.classFrom(bytecode);
-            this.fieldHandles = this.makeLocalVarHandles();
-            this.constructorHandle = makeConstructorHandle();
+            this.fieldHandles = this.localVarHandles();
+            this.constructorHandle = constructorHandle();
 
             // Checks
             Class<?> cls = frameClassLookup.lookupClass();
@@ -203,14 +189,18 @@ public class JVM17Code extends PyCode311 {
 
         PyBytes _linetable = castBytes(linetable, "linetable");
 
+        // Compute a layout from localsplus* arrays etc.
+        Layout311 layout = new Layout311(localsplusnames,
+                localspluskinds, argcount, posonlyargcount,
+                kwonlyargcount, _flags);
+
         // Everything is the right type and size
         return new JVM17Code( //
                 _filename, _name, _qualname, _flags, //
                 _bytecode, //
                 firstlineno, _linetable.asByteArray(), //
                 _consts.toArray(), _names, //
-                localsplusnames, localspluskinds, //
-                argcount, posonlyargcount, kwonlyargcount);
+                layout);
     }
 
     // Attributes -----------------------------------------------------
@@ -237,26 +227,7 @@ public class JVM17Code extends PyCode311 {
     }
 
     @Override
-    JVM17Layout layout() { return layout; }
-
-    /**
-     * A {@link Layout} based on a representation used internally by
-     * Python that appears in the stream {@code marshal} writes, e.g. in
-     * a {@code .pyc} file, but adapted for code compiled for the JVM.
-     */
-    static class JVM17Layout extends Layout311 {
-        /**
-         * Construct a {@code Layout} adapted for code compiled for the
-         * JVM. The compiled code is a class definition file extending
-         * {@link JVM17Frame}, and presented as a {@code Lookup} object.
-         *
-         * @param localsplusnames tuple of all the names
-         * @param localspluskinds bytes of kinds of variables
-         */
-        JVM17Layout(Object localsplusnames, Object localspluskinds) {
-            super(localsplusnames, localspluskinds);
-        }
-    }
+    Layout311 layout() { return layout; }
 
     /**
      * A wrapper on the frame that is able to get or set parameter
@@ -291,18 +262,19 @@ public class JVM17Code extends PyCode311 {
 
     /**
      * Create an array of {@code VarHandle}s on the fields of the frame
-     * class corresponding to the local variables in order. The type of
-     * each variable, expected by the handle, may be {@link PyCell}, if
-     * it is a cell variable, otherwise it is a plain {@code Object}.
+     * class corresponding to the frame variables (local and closure
+     * variables) in order. The type of each variable, expected by the
+     * handle, may be {@link PyCell}, if it is a cell variable,
+     * otherwise it is a plain {@code Object}.
      *
      * @return an array of {@code VarHandle}s on the fields
      */
-    private VarHandle[] makeLocalVarHandles() {
+    private VarHandle[] localVarHandles() {
         int nfast = layout.size();
         if (nfast > 0) {
             VarHandle[] handles = new VarHandle[nfast];
             for (int i = 0; i < nfast; i++) {
-                handles[i] = fieldhandle(frameClassLookup, i);
+                handles[i] = fieldHandle(frameClassLookup, i);
             }
             return handles;
         } else {
@@ -320,14 +292,14 @@ public class JVM17Code extends PyCode311 {
      * @param index in the layout
      * @return the handle
      */
-    private VarHandle fieldhandle(Lookup lookup, int index) {
+    private VarHandle fieldHandle(Lookup lookup, int index) {
+        String name = layout.localnames[index];
+        Class<?> c = lookup.lookupClass();
         try {
             if (layout.isCellOrFree(index)) {
-                return lookup.findVarHandle(JVM17Frame.class,
-                        layout.localnames[index], PyCell.class);
+                return lookup.findVarHandle(c, name, PyCell.class);
             } else {
-                return lookup.findVarHandle(JVM17Frame.class,
-                        layout.localnames[index], Object.class);
+                return lookup.findVarHandle(c, name, Object.class);
             }
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new InterpreterError(e,
@@ -337,12 +309,15 @@ public class JVM17Code extends PyCode311 {
     }
 
     /**
+     * Create a handle on the constructor of the frame class being
+     * defined.
      *
-     * @return
+     * @return handle on the constructor
      */
-    private MethodHandle makeConstructorHandle() {
+    private MethodHandle constructorHandle() {
         Class<?> cls = frameClassLookup.lookupClass();
         try {
+            // All frame constructors have the same signature
             return frameClassLookup.findConstructor(cls,
                     MethodType.methodType(void.class, PyFunction.class,
                             JVM17Code.class, Object.class));

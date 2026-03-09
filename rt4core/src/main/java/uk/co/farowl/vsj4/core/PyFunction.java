@@ -12,6 +12,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Member;
 import uk.co.farowl.vsj4.types.Exposed.Setter;
+import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithDict;
 
@@ -458,12 +459,32 @@ public class PyFunction implements WithDict {
         // Create a loose frame matching the PyCode
         PyFrame<? extends PyCode> frame = code.createFrame(this, null);
 
-        // Fill the local variables that are arguments
-        ArgParser.FrameWrapper wrapper = frame.getWrapper();
-        getArgParser().parseToFrame(wrapper, args, names);
+        // Custom implementations may have a fast path
+        FastCall fast = frame;
+        if (names == null || names.length == 0) {
+            // Only positional arguments were given
+            switch (args.length) {
+                case 0:
+                    return fast.call();
+                case 1:
+                    return fast.call(args[0]);
+                case 2:
+                    return fast.call(args[0], args[1]);
+                case 3:
+                    return fast.call(args[0], args[1], args[2]);
+                case 4:
+                    return fast.call(args[0], args[2], args[2],
+                            args[3]);
+                default:
+                    // If this fails, add more cases.
+                    assert args.length > FastCall.MAX_POSITIONAL;
+                    break;
+            }
+            // Fall through to the slow path
+        }
 
-        // Run the function body
-        return frame.eval();
+        // Fill the frame variables and eval() the frame.
+        return frame.call(args, names);
     }
 
     @SuppressWarnings("unused")
@@ -471,13 +492,6 @@ public class PyFunction implements WithDict {
         return String.format("<function %.100s at %#x>", qualname,
                 Py.id(this));
     }
-
-    // FastCall support ----------------------------------------------
-
-    // Idea:
-    // TODO PyFrame implements FastCall: frame.call(*) sets params.
-    // So when the signature matches in Callables.call(), we can place
-    // the arguments directly and the frame wrapper need not be created.
 
     // Plumbing ------------------------------------------------------
 

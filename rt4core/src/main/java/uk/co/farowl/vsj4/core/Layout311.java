@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.core;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.function.Consumer;
@@ -15,7 +16,7 @@ import uk.co.farowl.vsj4.core.PyCode.Layout;
 /**
  * Common elements of Python v3.11 frame layout objects.
  */
-abstract class Layout311 implements Layout {
+class Layout311 implements Layout {
     /** Count of {@code co_varnames} */
     final int nvarnames;
     /** Count of {@code co_cellvars} */
@@ -38,6 +39,29 @@ abstract class Layout311 implements Layout {
     protected final byte[] kinds;
 
     /**
+     * The number of positional parameters (including positional-only
+     * parameters and those with default values). Corresponds to
+     * {@code co_argcount} in the code object.
+     */
+    private final int argcount;
+    /**
+     * {@code co_posonlyargcount} the number of positional-only
+     * parameters (including those with default values). Corresponds to
+     * {@code co_posonlyargcount} in the code object.
+     */
+    private final int posonlyargcount;
+    /**
+     * {@code co_kwonlyargcount} The number of keyword-only parameters
+     * (including those with default values). Corresponds to
+     * {@code co_kwonlyargcount} in the code object.
+     */
+    private final int kwonlyargcount;
+    /** Index of positional argument collector, or -1. */
+    private final int positionalCollector;
+    /** Index of keyword argument collector, or -1. */
+    private final int keywordCollector;
+
+    /**
      * Construct a {@code Layout} based on a representation used
      * internally by CPython that appears in the stream {@code marshal}
      * writes, e.g. in a {@code .pyc} file. We also expect to use this
@@ -45,32 +69,45 @@ abstract class Layout311 implements Layout {
      *
      * @param localsplusnames tuple of all the names
      * @param localspluskinds bytes of kinds of variables
+     * @param argcount {@code co_argcount} the number of positional
+     *     parameters (including positional-only parameters and those
+     *     with default values)
+     * @param posonlyargcount {@code co_posonlyargcount} the number of
+     *     positional-only parameters (including those with default
+     *     values)
+     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
+     *     keyword-only parameters (including those with default values)
+     * @param flags {@code co_flags} a set of flags identifying various
+     *     (boolean) traits of the code object
      */
     Layout311(
-            // Mapping frame offsets to information
-            Object localsplusnames, Object localspluskinds) {
+            // Mapping frame offsets to information about a variable
+            Object localsplusnames, Object localspluskinds,
+            // Laying out which variables are parameters
+            int argcount, int posonlyargcount, int kwonlyargcount,
+            // Used to detect *args and **kwargs collector parameters
+            EnumSet<CodeFlag> flags) {
 
+        // Check type and size of the names and kinds objects
         PyTuple nameTuple =
                 PyCode.castTuple(localsplusnames, "localsplusnames");
         PyBytes kindBytes =
                 PyCode.castBytes(localspluskinds, "localspluskinds");
 
         int n = nameTuple.size();
-        this.localnames = new String[n];
-        this.kinds = new byte[n];
-
         if (kindBytes.size() != n) {
             throw PyErr.format(PyExc.ValueError, LENGTHS_UNEQUAL,
                     kindBytes.size(), n);
         }
 
-        // Compute indexes into name arrays as we go
-        int nloc = 0, nfree = 0, ncell = 0, icell0 = -1;
-
         /*
-         * Step through the localsplus* variables saving the name and
-         * kind of each, and counting the different kinds.
+         * Step through the localsplus* objects saving the name and kind
+         * of each, and counting the different kinds as we go.
          */
+        int nloc = 0, nfree = 0, ncell = 0, icell0 = -1;
+        this.localnames = new String[n];
+        this.kinds = new byte[n];
+
         for (int i = 0; i < n; i++) {
 
             String s = PyUnicode.asString(nameTuple.get(i),
@@ -104,7 +141,62 @@ abstract class Layout311 implements Layout {
         // If icell0>=0 cell parameter seen, else first cell.
         this.cell0 = icell0 >= 0 ? icell0 : n - nfree - ncell;
         this.free0 = localnames.length - nfree;
+
+        if (posonlyargcount < 0 || argcount < posonlyargcount
+                || kwonlyargcount < 0) {
+            throw PyErr.format(PyExc.ValueError,
+                    "code: argument counts inconsistent");
+        }
+
+        this.argcount = argcount;
+        this.posonlyargcount = posonlyargcount;
+        this.kwonlyargcount = kwonlyargcount;
+
+        int nargs = argcount + kwonlyargcount;
+        this.positionalCollector =
+                flags.contains(CodeFlag.VARARGS) ? nargs++ : -1;
+        this.keywordCollector =
+                flags.contains(CodeFlag.VARKEYWORDS) ? nargs++ : -1;
+        if (n < nargs) {
+            throw PyErr.format(PyExc.ValueError,
+                    "code: fewer names than parameters");
+        }
     }
+
+    @Override
+    public String toString() {
+        StringBuilder b = new StringBuilder(100);
+        b.append('(');
+        for (int i = 0; i < localnames.length; i++) {
+            boolean cell = isCellOrFree(i);
+            if (cell) { b.append('['); }
+            if (i == positionalCollector) { b.append('*'); }
+            if (i == keywordCollector) { b.append("**"); }
+            b.append(localnames[i]);
+            if (cell) { b.append(']'); }
+            if (i < localnames.length - 1) { b.append(","); }
+        }
+        b.append(')');
+        return b.toString();
+    }
+
+    @Override
+    public int argcount() { return argcount; }
+
+    @Override
+    public int posonlyargcount() { return posonlyargcount; }
+
+    @Override
+    public int kwonlyargcount() { return kwonlyargcount; }
+
+    @Override
+    public int positionalCollector() { return positionalCollector; }
+
+    @Override
+    public int keywordCollector() { return keywordCollector; }
+
+    @Override
+    public int nlocals() { return localnames.length; }
 
     @Override
     public int size() { return localnames.length; }
@@ -262,6 +354,10 @@ abstract class Layout311 implements Layout {
     private static final String LENGTHS_UNEQUAL =
             "lengths unequal localspluskinds(%d) _localsplusnames(%d)";
     // See CPython frameobject.c, compile.c and pycore_code.h
-    private static final int CO_FAST_LOCAL = 0x20, CO_FAST_CELL = 0x40,
+    /** Bit indicating a frame variable is local */
+    public static final int CO_FAST_LOCAL = 0x20,
+            /** Bit indicating a frame variable is a cell local */
+            CO_FAST_CELL = 0x40,
+            /** Bit indicating a frame variable is free (non-local) */
             CO_FAST_FREE = 0x80;
 }

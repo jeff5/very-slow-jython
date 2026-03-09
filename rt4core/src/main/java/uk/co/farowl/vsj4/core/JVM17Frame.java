@@ -5,7 +5,6 @@ package uk.co.farowl.vsj4.core;
 import java.util.EnumSet;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.core.JVM17Code.JVM17Layout;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -79,8 +78,9 @@ public abstract class JVM17Frame extends PyFrame<JVM17Code> {
      * equivalents.
      */
     // TODO Implement exception handling for Python frames
+    // Declared public so that compiled code may reference it.
     @Override
-    Object eval() {
+    public Object eval() {
         try {
             return body();
         } catch (Throwable t) {
@@ -99,6 +99,7 @@ public abstract class JVM17Frame extends PyFrame<JVM17Code> {
      * @return value of the function (or {@code None})
      * @throws Throwable from the implementation
      */
+    // Declared public so that compiled code may reference it.
     public abstract Object body() throws Throwable;
 
     @Override
@@ -127,7 +128,7 @@ public abstract class JVM17Frame extends PyFrame<JVM17Code> {
 
         // Work through the frame pulling out names and values
         JVM17Code.Wrapper wrapper = getWrapper();
-        JVM17Layout layout = code.layout;
+        Layout311 layout = code.layout;
         int n = layout.size();
 
         for (int i = 0; i < n; i++) {
