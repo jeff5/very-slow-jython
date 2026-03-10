@@ -3,10 +3,7 @@
 package uk.co.farowl.vsj4.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.ARETURN;
-import static org.objectweb.asm.Opcodes.GETFIELD;
-import static org.objectweb.asm.Opcodes.GETSTATIC;
+import static org.objectweb.asm.Opcodes.*;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -19,10 +16,12 @@ import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 import uk.co.farowl.vsj4.codegen.JVM17FrameFactory;
@@ -227,8 +226,8 @@ class JVM17FrameTest extends UnitTestSupport {
 
         @BeforeAll
         static void setCode() {
-            SetupArtefacts ts = setupFromParser(PARSER);
-            FrameClassBuilder builder = ts.builder;
+            SetupArtefacts sa = setupFromParser(PARSER);
+            FrameClassBuilder builder = sa.builder;
 
             // Define the instructions in the body of body()
             InsnList ins = builder.getBody().instructions;
@@ -242,8 +241,8 @@ class JVM17FrameTest extends UnitTestSupport {
 
             // Make a code object from completed class definition
             CODE = new JVM17Code("<test>", PARSER.name, PARSER.name,
-                    ts.flags, builder.toBytes(), 1, NO_BYTES,
-                    NO_OBJECTS, NO_STRINGS, ts.layout);
+                    sa.flags, builder.toBytes(), 1, NO_BYTES,
+                    NO_OBJECTS, NO_STRINGS, sa.layout);
         }
 
         @Test
@@ -262,8 +261,8 @@ class JVM17FrameTest extends UnitTestSupport {
     /**
      * Test a function that returns its single argument. Equivalent
      * to:<pre>
-     * def return_argument(v):
-     *     return v
+     * def return_argument(a):
+     *     return a
      * </pre>
      */
     @Nested
@@ -271,7 +270,7 @@ class JVM17FrameTest extends UnitTestSupport {
     @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
     class TestReturnArgument extends BaseTest {
         private static ArgParser PARSER =
-                ArgParser.fromSignature("return_argument", "v");
+                ArgParser.fromSignature("return_argument", "a");
         private static JVM17Code CODE;
 
         @Override
@@ -283,8 +282,8 @@ class JVM17FrameTest extends UnitTestSupport {
         @BeforeAll
         static void setCode() {
             // Create frame class based on the parser
-            SetupArtefacts ts = setupFromParser(PARSER);
-            FrameClassBuilder builder = ts.builder;
+            SetupArtefacts sa = setupFromParser(PARSER);
+            FrameClassBuilder builder = sa.builder;
 
             // Define the instructions in the body of body()
             InsnList ins = builder.getBody().instructions;
@@ -293,15 +292,15 @@ class JVM17FrameTest extends UnitTestSupport {
             // return this.v
             ins.add(new VarInsnNode(ALOAD, 0));
             ins.add(new FieldInsnNode(GETFIELD,
-                    builder.getFrameClassName(), "v",
+                    builder.getFrameClassName(), "a",
                     OBJECT_CLASS_DESCR));
             ins.add(new InsnNode(ARETURN));
             // -------------------------------------------------------
 
             // Make a code object from completed class definition
             CODE = new JVM17Code("<test>", PARSER.name, PARSER.name,
-                    ts.flags, builder.toBytes(), 1, NO_BYTES,
-                    NO_OBJECTS, NO_STRINGS, ts.layout);
+                    sa.flags, builder.toBytes(), 1, NO_BYTES,
+                    NO_OBJECTS, NO_STRINGS, sa.layout);
         }
 
         @Test
@@ -316,6 +315,232 @@ class JVM17FrameTest extends UnitTestSupport {
             assertPythonEquals(42, r);
             r = Callables.call(func, "spam");
             assertPythonEquals("spam", r);
+        }
+    }
+
+    /**
+     * Test a function that negates its single argument. Equivalent
+     * to:<pre>
+     * def return_argument(v):
+     *     return -v
+     * </pre>
+     */
+    @Nested
+    @DisplayName("that negates its argument")
+    @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
+    class TestNegate extends BaseTest {
+        private static ArgParser PARSER =
+                ArgParser.fromSignature("negate", "v");
+        private static JVM17Code CODE;
+
+        @Override
+        ArgParser parser() { return PARSER; }
+
+        @Override
+        JVM17Code code() { return CODE; }
+
+        @BeforeAll
+        static void setCode() {
+            // Create frame class based on the parser
+            SetupArtefacts sa = setupFromParser(PARSER);
+            FrameClassBuilder builder = sa.builder;
+
+            // Define the instructions in the body of body()
+            InsnList ins = builder.getBody().instructions;
+
+            // -------------------------------------------------------
+            // push this.v
+            ins.add(new VarInsnNode(ALOAD, 0));
+            ins.add(new FieldInsnNode(GETFIELD,
+                    builder.getFrameClassName(), "v",
+                    OBJECT_CLASS_DESCR));
+            // unary call site
+            ins.add(new InvokeDynamicInsnNode("negative",
+                    UNARY_OP_DESCR, UNARY_BOOTSTRAP_HANDLE));
+            // return tos
+            ins.add(new InsnNode(ARETURN));
+            // -------------------------------------------------------
+
+            // Make a code object from completed class definition
+            CODE = new JVM17Code("<test>", PARSER.name, PARSER.name,
+                    sa.flags, builder.toBytes(), 1, NO_BYTES,
+                    NO_OBJECTS, NO_STRINGS, sa.layout);
+        }
+
+        @Test
+        @Override
+        void returns_expected_value() throws Throwable {
+            // Try using code in a function
+            Interpreter interp = new Interpreter();
+            PyDict globals = Py.dict();
+            PyFunction func = new PyFunction(interp, code(), globals);
+
+            Object r = Callables.call(func, 42);
+            assertPythonEquals(-42, r);
+            r = Callables.call(func, -42.0);
+            assertPythonEquals(42.0, r);
+            r = Callables.call(func, 0.5); // expect no fallback
+            assertPythonEquals(-0.5, r);
+            r = Callables.call(func, true);
+            assertPythonEquals(-1, r);
+        }
+    }
+
+    /**
+     * Test a function that subtracts its arguments. Equivalent to:<pre>
+     * def subtract(v, w):
+     *     return v - w
+     * </pre>
+     */
+    @Nested
+    @DisplayName("that subtracts its arguments")
+    @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
+    class TestSubtract extends BaseTest {
+        private static ArgParser PARSER =
+                ArgParser.fromSignature("subtract", "v", "w");
+        private static JVM17Code CODE;
+
+        @Override
+        ArgParser parser() { return PARSER; }
+
+        @Override
+        JVM17Code code() { return CODE; }
+
+        @BeforeAll
+        static void setCode() {
+            // Create frame class based on the parser
+            SetupArtefacts sa = setupFromParser(PARSER);
+            FrameClassBuilder builder = sa.builder;
+
+            // Define the instructions in the body of body()
+            InsnList ins = builder.getBody().instructions;
+
+            // -------------------------------------------------------
+            // push this.v
+            ins.add(new VarInsnNode(ALOAD, 0));
+            ins.add(new FieldInsnNode(GETFIELD,
+                    builder.getFrameClassName(), "v",
+                    OBJECT_CLASS_DESCR));
+            // push this.w
+            ins.add(new VarInsnNode(ALOAD, 0));
+            ins.add(new FieldInsnNode(GETFIELD,
+                    builder.getFrameClassName(), "w",
+                    OBJECT_CLASS_DESCR));
+            // binary call site
+            ins.add(new InvokeDynamicInsnNode("subtract",
+                    BINARY_OP_DESCR, BINARY_BOOTSTRAP_HANDLE));
+            // return tos
+            ins.add(new InsnNode(ARETURN));
+            // -------------------------------------------------------
+
+            // Make a code object from completed class definition
+            CODE = new JVM17Code("<test>", PARSER.name, PARSER.name,
+                    sa.flags, builder.toBytes(), 1, NO_BYTES,
+                    NO_OBJECTS, NO_STRINGS, sa.layout);
+        }
+
+        @Test
+        @Override
+        void returns_expected_value() throws Throwable {
+            // Try using code in a function
+            Interpreter interp = new Interpreter();
+            PyDict globals = Py.dict();
+            PyFunction func = new PyFunction(interp, code(), globals);
+
+            Object r = Callables.call(func, 60, 18);
+            assertPythonEquals(42, r);
+            r = Callables.call(func, 30.0, -12.0);
+            assertPythonEquals(42.0, r);
+            r = Callables.call(func, 2.0, 2.5); // expect no fallback
+            assertPythonEquals(-0.5, r);
+            r = Callables.call(func, -100, -99); // nor here
+            assertPythonEquals(-1, r);
+        }
+    }
+
+    /**
+     * Test a function that computes a quartic. Equivalent to:<pre>
+     * def subtract(v, w):
+     *     return v * w * (v + w) * (v - w)
+     * </pre>
+     */
+    @Nested
+    @DisplayName("that computes a quartic")
+    @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
+    class TestQuartic extends BaseTest {
+        private static ArgParser PARSER =
+                ArgParser.fromSignature("quartic", "v", "w");
+        private static JVM17Code CODE;
+
+        @Override
+        ArgParser parser() { return PARSER; }
+
+        @Override
+        JVM17Code code() { return CODE; }
+
+        @BeforeAll
+        static void setCode() {
+            // Create frame class based on the parser
+            SetupArtefacts sa = setupFromParser(PARSER);
+            FrameClassBuilder builder = sa.builder;
+
+            // Define the instructions in the body of body()
+            InsnList ins = builder.getBody().instructions;
+
+            // -------------------------------------------------------
+            // a1 = this.v
+            ins.add(new VarInsnNode(ALOAD, 0));
+            ins.add(new FieldInsnNode(GETFIELD,
+                    builder.getFrameClassName(), "v",
+                    OBJECT_CLASS_DESCR));
+            ins.add(new VarInsnNode(ASTORE, 1));
+            // a2 = this.w
+            ins.add(new VarInsnNode(ALOAD, 0));
+            ins.add(new FieldInsnNode(GETFIELD,
+                    builder.getFrameClassName(), "w",
+                    OBJECT_CLASS_DESCR));
+            ins.add(new VarInsnNode(ASTORE, 2));
+            // push t = a1 * a2
+            ins.add(new VarInsnNode(ALOAD, 1));
+            ins.add(new VarInsnNode(ALOAD, 2));
+            ins.add(new InvokeDynamicInsnNode("multiply",
+                    BINARY_OP_DESCR, BINARY_BOOTSTRAP_HANDLE));
+            // push a1 + a2
+            ins.add(new VarInsnNode(ALOAD, 1));
+            ins.add(new VarInsnNode(ALOAD, 2));
+            ins.add(new InvokeDynamicInsnNode("add", BINARY_OP_DESCR,
+                    BINARY_BOOTSTRAP_HANDLE));
+            // t = t * (a1 + a2)
+            ins.add(new InvokeDynamicInsnNode("multiply",
+                    BINARY_OP_DESCR, BINARY_BOOTSTRAP_HANDLE));
+            // push a1 - a2
+            ins.add(new VarInsnNode(ALOAD, 1));
+            ins.add(new VarInsnNode(ALOAD, 2));
+            ins.add(new InvokeDynamicInsnNode("subtract",
+                    BINARY_OP_DESCR, BINARY_BOOTSTRAP_HANDLE));
+            // t = t * (a1 - a2)
+            ins.add(new InvokeDynamicInsnNode("multiply",
+                    BINARY_OP_DESCR, BINARY_BOOTSTRAP_HANDLE));
+            // return tos
+            ins.add(new InsnNode(ARETURN));
+            // -------------------------------------------------------
+
+            // Make a code object from completed class definition
+            CODE = new JVM17Code("<test>", PARSER.name, PARSER.name,
+                    sa.flags, builder.toBytes(), 1, NO_BYTES,
+                    NO_OBJECTS, NO_STRINGS, sa.layout);
+        }
+
+        @Test
+        @Override
+        void returns_expected_value() throws Throwable {
+            // Try using code in a function
+            Interpreter interp = new Interpreter();
+            PyDict globals = Py.dict();
+            PyFunction func = new PyFunction(interp, code(), globals);
+
+            Object r = Callables.call(func, 5, 3);
+            assertPythonEquals(240, r);
         }
     }
 
@@ -338,6 +563,19 @@ class JVM17FrameTest extends UnitTestSupport {
             Type.getInternalName(Object.class);
     private static final String OBJECT_CLASS_DESCR =
             Type.getDescriptor(Object.class);
+    private static final String RT_CLASS_NAME =
+            Type.getInternalName(PyRT.class);
+    private static final String BOOTSTRAP_DESCR =
+            "(Ljava/lang/invoke/MethodHandles$Lookup;"
+                    + "Ljava/lang/String;"
+                    + "Ljava/lang/invoke/MethodType;"
+                    + ")Ljava/lang/invoke/CallSite;";
+    private static final String UNARY_OP_DESCR = operationDescr(1);
+    private static final Handle UNARY_BOOTSTRAP_HANDLE =
+            getHandle("bootstrap");
+    private static final String BINARY_OP_DESCR = operationDescr(2);
+    private static final Handle BINARY_BOOTSTRAP_HANDLE =
+            getHandle("bootstrap");
 
     // Plumbing ------------------------------------------------------
 
@@ -345,6 +583,29 @@ class JVM17FrameTest extends UnitTestSupport {
     static final String[] NO_STRINGS = new String[0];
     static final Object[] NO_OBJECTS = new Object[0];
 
+    /**
+     * A descriptor for a function of {@code n} arguments of type
+     * {@code Object} returning {@code Object}.
+     *
+     * @param n number of Object arguments
+     */
+    private static String operationDescr(int n) {
+        // Create a descriptor for a method with n Object params
+        StringBuilder descr = new StringBuilder(200);
+        descr.append('(');
+        for (int i = 0; i < n; i++) {
+            descr.append(OBJECT_CLASS_DESCR);
+        }
+        descr.append(')').append(OBJECT_CLASS_DESCR);
+        return descr.toString();
+    }
+
+    private static Handle getHandle(final String name) {
+        return new Handle(H_INVOKESTATIC, RT_CLASS_NAME, name,
+                BOOTSTRAP_DESCR, false);
+    }
+
+    // Prototypes ----------------------------------------------------
     /**
      * The nested classes here are prototypes for the sort of class we
      * might generate by compiling Python functions to the JVM variants
@@ -368,7 +629,6 @@ class JVM17FrameTest extends UnitTestSupport {
             @Override
             public Object body() { return Py.None; }
 
-            // Experimentally define a FastCall call.
             @Override
             public Object call() { return eval(); }
         }
@@ -383,6 +643,12 @@ class JVM17FrameTest extends UnitTestSupport {
 
             @Override
             public Object body() { return a; }
+
+            @Override
+            public Object call(Object a) {
+                this.a = a;
+                return eval();
+            }
         }
 
         static class Negate extends JVM17Frame {
@@ -396,6 +662,12 @@ class JVM17FrameTest extends UnitTestSupport {
             @Override
             public Object body() throws Throwable {
                 return PyNumber.negative(v);
+            }
+
+            @Override
+            public Object call(Object v) {
+                this.v = v;
+                return eval();
             }
         }
 
@@ -430,7 +702,6 @@ class JVM17FrameTest extends UnitTestSupport {
                                         PyNumber.subtract(v, w))));
             }
 
-            // Experimentally define a FastCall call.
             @Override
             public Object call(Object v, Object w) {
                 this.v = v;
@@ -439,5 +710,4 @@ class JVM17FrameTest extends UnitTestSupport {
             }
         }
     }
-
 }
