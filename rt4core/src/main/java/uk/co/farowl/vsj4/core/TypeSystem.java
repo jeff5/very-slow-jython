@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.kernel.BinopTable;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SimpleType;
 import uk.co.farowl.vsj4.kernel.TypeFactory;
@@ -74,6 +75,12 @@ class TypeSystem {
      * class look-ups.
      */
     static final TypeRegistry registry;
+
+    /**
+     * A lookup for binary operations optimised to particular operand
+     * classes.
+     */
+    static final BinopTable binaryOperations;
 
     /*
      * We use these in corresponding TYPE fields avoid a static
@@ -218,6 +225,12 @@ class TypeSystem {
              */
             f.publishBootstrapTypes(TypeExposerImplementation::new);
 
+            // The binary operations table should be complete by now.
+            binaryOperations = factory.getBinops();
+            logger.atDebug()
+                    .setMessage("{} binary operations specialised")
+                    .addArgument(binaryOperations.size()).log();
+
         } catch (Clash clash) {
             // Maybe a bootstrap type was used prematurely?
             throw new InterpreterError(clash);
@@ -260,6 +273,12 @@ class TypeSystem {
         BootstrapSpec(String name, Lookup lookup, Class<?> primary) {
             super(name, lookup, false);
             this.primary(primary).add(Feature.IMMUTABLE);
+        }
+
+        @Override
+        public BootstrapSpec binopImpl(Class<?> binopClass) {
+            super.binopImpl(binopClass);
+            return this;
         }
     }
 

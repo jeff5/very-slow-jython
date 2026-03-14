@@ -1,3 +1,5 @@
+// Copyright (c)2026 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.types;
 
 import java.lang.invoke.MethodHandle;
@@ -26,10 +28,11 @@ import java.util.Map;
  * This interface provides a way of looking up that matching
  * constructor, which we return as a {@code MethodHandle}.
  */
-public interface NewInstance {
+public interface Constructible {
     /**
-     * The return from {@link #constructor()} holding a reflective
-     * constructor definition and a handle by which it may be called.
+     * The return from {@link Constructible#constructor(Class...)}
+     * holding a reflective constructor definition and a
+     * {@code MethodHandle} by which it may be called.
      */
     public static record ConstructorAndHandle(
             Constructor<?> constructor, MethodHandle handle) {}

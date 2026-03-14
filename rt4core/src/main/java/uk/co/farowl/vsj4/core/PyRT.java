@@ -1,0 +1,581 @@
+// Copyright (c)2026 Jython Developers.
+// Licensed to PSF under a contributor agreement.
+package uk.co.farowl.vsj4.core;
+
+import static java.lang.invoke.MethodHandles.*;
+import static uk.co.farowl.vsj4.support.JavaClassShorthand.C;
+import static uk.co.farowl.vsj4.support.JavaClassShorthand.O;
+
+import java.lang.invoke.CallSite;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.MutableCallSite;
+
+import uk.co.farowl.vsj4.internal.EmptyException;
+import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
+import uk.co.farowl.vsj4.kernel.Representation;
+import uk.co.farowl.vsj4.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.kernel.TypeRegistry;
+import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.TypeFlag;
+import uk.co.farowl.vsj4.types.WithClass;
+
+/**
+ * {@link PyRT} provides run-time support for Python that has been
+ * compiled to Java byte code, primarily for {@code invokedynamic} call
+ * sites. In some ways, this supersedes methods in {@link Abstract} that
+ * support the interpretation of Python byte code. Like those methods,
+ * these call sites wrap a call on a particular special method (like
+ * {@code __neg__} and {@code __add__}). Call sites in Java code should
+ * behave exactly as their counterparts in {@link Abstract}.
+ * <p>
+ * The use of {@code invokedynamic} call sites has the potential to
+ * unlock dynamic optimisation through specialisation to the actual Java
+ * classes encountered in a given place in the compiled code. It does
+ * not benefit widely used code that receives calls with many different
+ * object types (termed <i>megamutable</i>).
+ * <p>
+ * For this reason, not all the methods in {@link Abstract}, nor all the
+ * special methods, need corresponding call sites. Those like
+ * {@link Abstract#repr(Object)} or {@link Abstract#size(Object)},
+ * wrapping {@code __repr__} or {@code __len__}, exist only to support
+ * built-in methods ({@code repr()} and {@code len()}). A call site to
+ * replace one of those would quickly become megamutable.
+ * <p>
+ * Specialisation takes place on Java class rather than Python type.
+ * This means that the call site will read and embed (under a
+ * class-guard) the method handle it finds via the representation class
+ * of objects presented as the {@code self} argument. This has several
+ * implications:
+ * <ol>
+ * <li>Primitive operations on immutable types with representations that
+ * are unique to them, largely types defined in Java, dispatch quickly
+ * to their exact target implementation.</li>
+ * <li>Operations on Python types that share an implementation class,
+ * largely replaceable types defined in Python, must find their target
+ * in a second step via the Python type of {@code self}.</li>
+ * </ol>
+ * In the second case, the handle found (and embedded for the class) is
+ * a "bounce" handle that will dynamically invoke the corresponding
+ * special method on {@link WithClass#getType() self.getType()}.
+ */
+public class PyRT {
+
+    /** A method implementing a unary op has this type. */
+    static final MethodType UOP = SpecialMethod.Signature.UNARY.type;
+    /** A method implementing a binary op has this type. */
+    static final MethodType BINOP = SpecialMethod.Signature.BINARY.type;
+    /** Handle testing an object has a particular class. */
+    static final MethodHandle CLASS_GUARD;
+    /** Handle testing two object have a particular classes. */
+    static final MethodHandle CLASS2_GUARD;
+    /** Handle testing an object is not {@code NotImplemented}. */
+    static final MethodHandle IMPLEMENTED_GUARD;
+    /** Lookup with the rights of the run-time system. */
+    private static final Lookup lookup;
+
+    static {
+        lookup = MethodHandles.lookup();
+        try {
+            CLASS_GUARD = lookup.findStatic(PyRT.class, "classEquals",
+                    MethodType.methodType(boolean.class, C, O));
+            CLASS2_GUARD = lookup.findStatic(PyRT.class, "classEquals",
+                    MethodType.methodType(boolean.class, C, C, O, O));
+            IMPLEMENTED_GUARD =
+                    lookup.findStatic(PyRT.class, "isImplemented",
+                            MethodType.methodType(boolean.class, O));
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw staticInitError(e, PyRT.class);
+        }
+    }
+
+    /**
+     * Single registry from which we get {@code Representations}. A side
+     * effect of this shorthand is to ensure that the {@link TypeSystem}
+     * is statically initialised before we use any API method.
+     */
+    private static final TypeRegistry registry = TypeSystem.registry;
+
+    /**
+     * Bootstrap method mapping a name to a corresponding call site type
+     * and returning an instance of that call site.
+     *
+     * @param lookup rights of the caller
+     * @param name encoding the operation
+     * @param type signature of the operation
+     * @return call site for the operation
+     * @throws InterpreterError if name cannot be mapped
+     */
+    public static CallSite bootstrap(Lookup lookup, String name,
+            MethodType type) {
+        CallSite site = switch (name) {
+            // TODO Maybe use AST node names/enum for call sites?
+            // See operator_ty, unaryop_ty etc. in pycore_ast.h
+            case "negative" -> new UnaryOpCallSite(
+                    SpecialMethod.op_neg);
+            case "positive" -> new UnaryOpCallSite(
+                    SpecialMethod.op_pos);
+            case "absolute" -> new UnaryOpCallSite(
+                    SpecialMethod.op_abs);
+            case "add" -> new BinaryOpCallSite(SpecialMethod.op_add);
+            case "multiply" -> new BinaryOpCallSite(
+                    SpecialMethod.op_mul);
+            case "subtract" -> new BinaryOpCallSite(
+                    SpecialMethod.op_sub);
+            default -> null;
+        };
+
+        if (site == null) {
+            throw new InterpreterError(
+                    "call site type %s not recognised", name);
+        }
+        return site;
+    }
+
+    /**
+     * A call site for unary Python operations. The call site is
+     * constructed from a slot such as {@link SpecialMethod#op_neg}. It
+     * obtains a method handle from the {@link Representation} of each
+     * distinct class observed as the argument, and maintains a cache of
+     * method handles guarded on those classes.
+     */
+    static class UnaryOpCallSite extends MutableCallSite {
+
+        /** Limit on {@link #chainLength}. */
+        public static final int MAX_CHAIN = 4;
+
+        /**
+         * Handle to {@link #fallback(Object)}, which is the behaviour
+         * for this call site when the class of {@code self} does not
+         * match any of the embedded guards.
+         */
+        private static final MethodHandle fallbackMH;
+        static {
+            try {
+                fallbackMH = lookup.findVirtual(UnaryOpCallSite.class,
+                        "fallback", UOP);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw staticInitError(e, UnaryOpCallSite.class);
+            }
+        }
+
+        /** The {@link SpecialMethod} to be applied by the site. */
+        final SpecialMethod op;
+
+        /**
+         * The number of times this site has used
+         * {@link #fallback(Object) fallback}, used to observe internal
+         * working and potentially for de-optimisation decisions.
+         */
+        int fallbackCount;
+
+        /**
+         * The number of guarded invocations cached in the target of
+         * this site by {@link #fallback(Object) fallback}, used to
+         * observe internal working and potentially for de-optimisation
+         * decisions.
+         */
+        int chainLength;
+
+        /**
+         * Construct a call site with the specific unary operation.
+         *
+         * @param op unary operation to execute
+         */
+        public UnaryOpCallSite(SpecialMethod op) {
+            super(UOP);
+            this.op = op;
+            setTarget(fallbackMH.bindTo(this));
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "UnaryOpCallSite[%s fallbacks=%s chain=%s]",
+                    op.name(), fallbackCount, chainLength);
+        }
+
+        /**
+         * Compute the result of the call for this particular argument,
+         * and update the site to do this efficiently for the same class
+         * in the future, if it is safe and effective to do so. We call
+         * this when the class of {@code self} did not match any of the
+         * embedded guards.
+         *
+         * @param self operand
+         * @return {@code self.op()}
+         * @throws Throwable from the implementation of {@link #op}
+         */
+        @SuppressWarnings("unused")
+        private Object fallback(Object self) throws Throwable {
+            fallbackCount += 1;
+
+            Class<?> selfClass = self.getClass();
+            Representation rep = registry.get(selfClass);
+
+            // A handle on the implementation of op in rep
+            MethodHandle mh = op.handle(rep), targetMH, guardMH;
+
+            /*
+             * If the operation throws, it throws here and we do not
+             * bind a new target. If it's a value-dependent one-off,
+             * we'll get another go.
+             */
+            Object result;
+            try {
+                result = mh.invokeExact(self);
+            } catch (EmptyException e) {
+                // Method not defined. Raise a Python TypeError.
+                result = op.errorHandle().invokeExact(self);
+            }
+
+            /**
+             * If the type has chosen a generic handle, it is because
+             * the meaning of the special method may change.
+             */
+            if (mh != op.generic && chainLength < MAX_CHAIN) {
+                // MH for guarded invocation (becomes new target)
+                guardMH = CLASS_GUARD.bindTo(selfClass);
+                targetMH = guardWithTest(guardMH, mh, getTarget());
+                setTarget(targetMH);
+                chainLength += 1;
+            }
+            return result;
+        }
+    }
+
+    /**
+     * A call site for binary Python operations. The call site is
+     * constructed from a slot such as {@link SpecialMethod#op_sub} and
+     * its reflection ({@link SpecialMethod#op_sub} in the example).
+     *
+     * The call site implements the full semantics of the related
+     * abstract operation, that is it takes care of selecting and
+     * invoking the reflected operation when Python requires it.
+     *
+     * If either the left or right type defines type-specific binary
+     * operations, it will look first for a match with one of those
+     * definitions.
+     *
+     * If that does not succeed, it will use handles in the two
+     * {@link Representation} objects
+     *
+     * It constructs a method handle applicable to each distinct pair of
+     * classes observed as the arguments, and maintains a cache of
+     * method handles guarded on those classes.
+     */
+    static class BinaryOpCallSite extends MutableCallSite {
+
+        /** Limit on {@link #chainLength}. */
+        public static final int MAX_CHAIN = 6;
+
+        /**
+         * Handle to {@link #fallback(Object, Object)}, which is the
+         * behaviour for this call site when the class of {@code self}
+         * does not match any of the embedded guards.
+         */
+        private static final MethodHandle fallbackMH;
+
+        static {
+            try {
+                fallbackMH = lookup.findVirtual(BinaryOpCallSite.class,
+                        "fallback", BINOP);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw staticInitError(e, BinaryOpCallSite.class);
+            }
+        }
+
+        /** The {@link SpecialMethod} to be applied by the site. */
+        final SpecialMethod op;
+
+        /**
+         * The number of times this site has used
+         * {@link #fallback(Object, Object) fallback}, used to observe
+         * internal working and potentially for de-optimisation
+         * decisions.
+         */
+        int fallbackCount;
+
+        /**
+         * The number of guarded invocations cached in the target of
+         * this site by {@link #fallback(Object, Object) fallback}, used
+         * to observe internal working and potentially for
+         * de-optimisation decisions.
+         */
+        int chainLength;
+
+        /**
+         * Construct a call site with the given binary operation.
+         *
+         * @param op a binary operation
+         */
+        public BinaryOpCallSite(SpecialMethod op) {
+            super(BINOP);
+            this.op = op;
+            setTarget(fallbackMH.bindTo(this));
+        }
+
+        @Override
+        public String toString() {
+            return String.format(
+                    "BinaryOpCallSite[%s fallbacks=%s chain=%s]",
+                    op.name(), fallbackCount, chainLength);
+        }
+
+        /**
+         * Compute the result of the call for this particular pair of
+         * arguments, and update the site to do this efficiently for the
+         * same classes in the future, if it is safe and effective to do
+         * so. We call this when the class of {@code v} did not match
+         * any of the embedded guards.
+         *
+         * @param v left operand
+         * @param w right operand
+         * @return {@code op(v, w)}
+         * @throws Throwable on errors or if not implemented
+         */
+        @SuppressWarnings("unused")
+        private Object fallback(Object v, Object w) throws Throwable {
+
+            fallbackCount += 1;
+
+            Class<?> vClass = v.getClass();
+            Representation vRep = registry.get(vClass);
+            BaseType vType = vRep.pythonType(v);
+            MethodHandle vMH;   // e.g. type(v).__sub__
+
+            Class<?> wClass = w.getClass();
+            Representation wRep = registry.get(wClass);
+            BaseType wType = wRep.pythonType(w);
+            MethodHandle wRH;   // e.g. type(w).__rsub__
+
+            // A Python binary op consults both types in the pattern:
+            // if (wType == vType) {
+            // ... try v.op only
+            // } else {
+            // if (wType.isSubTypeOf(vType)) {
+            // ... try w.rop then v.op
+            // } else {
+            // ... try v.op then w.rop
+            // }}
+            /*
+             * We create a method handle, to guard with a pair of
+             * classes, that explores only the alternatives that might
+             * succeed. This choice depends on whether each class is a
+             * shared representation.
+             */
+            MethodHandle mh, targetMH, guardMH;
+            Object result;
+
+            if (vType.hasFeature(TypeFlag.REPLACEABLE)) {
+                // class(v) does not fix type(v).
+                if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
+                    // class(w) does not fix type(w).
+                    /*
+                     * Both vMH and wRH would be bounce handles. We
+                     * currently hypothesise that it is not worth
+                     * updating the call site with such a combination:
+                     * rather just go for the answer.
+                     */
+                    return dynamicResult(vType, v, wType, w);
+
+                } else {
+                    // class(w) fixes type(w).
+                    vMH = op.handle(vRep);      // = op.bounce
+                    SpecialMethod rop = op.reflected;
+                    if ((wRH = rop.handle(wRep)) == rop.empty) {
+                        // We need only consider vMH.
+                        mh = vMH;
+                    } else {
+                        /*
+                         * No type represented by class(w) is a sub-type
+                         * of type(v), or type(w) would have been
+                         * replaceable too. Always try v.op(w) then
+                         * w.rop(v)
+                         */
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                    // Convert a final NotImplemented into an error
+                    mh = firstImplementer(mh, op.errorHandle());
+                }
+
+            } else if (wType.hasFeature(TypeFlag.REPLACEABLE)) {
+                // class(v) fixes type(v).
+                // class(w) does not fix type(w).
+                wRH = op.reflected.handle(wRep);     // = op.bounce
+                if ((vMH = op.handle(vRep)) == op.empty) {
+                    // We need only consider wRH
+                    mh = wRH;
+                } else {
+                    /*
+                     * The types (all of them or none) represented by
+                     * class(w) may be proper sub-types of type(v).
+                     */
+                    if (wType.isSubTypeOf(vType)) {
+                        // Try w.rop(v),then v.rop(w).
+                        mh = firstImplementer(wRH, vMH);
+                    } else {
+                        // Try v.op(w) then w.rop(v)
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                }
+                // Convert a final NotImplemented into an error
+                mh = firstImplementer(mh, op.errorHandle());
+
+            } else {
+                // class(v) fixes type(v).
+                // class(w) fixes type(w).
+                MethodHandle binopMH;
+                if (vType.hasFeature(KernelTypeFlag.BINOP_TABLE)
+                        && wType.hasFeature(KernelTypeFlag.BINOP_TABLE)
+                        && (binopMH = TypeSystem.binaryOperations
+                                .get(op, vClass, wClass)) != null) {
+                    /*
+                     * Specialisations are not allowed to return
+                     * NotImplemented, so we do not need to wrap them in
+                     * firstImplementer.
+                     */
+                    mh = binopMH;
+                } else {
+                    // No specialisation defined
+                    vMH = op.handle(vRep);
+                    SpecialMethod rop = op.reflected;
+                    if (vType == wType
+                            || (wRH = rop.handle(wRep)) == rop.empty) {
+                        // We need only consider vMH (even if empty)
+                        mh = vMH;
+                    } else if (vMH == op.empty) {
+                        // We need only consider wRH
+                        mh = wRH;
+                    } else if (wType.isSubTypeOf(vType)) {
+                        // Try w.rop(v),then v.rop(w).
+                        mh = firstImplementer(wRH, vMH);
+                    } else {
+                        // Try v.op(w) then w.rop(v)
+                        mh = firstImplementer(vMH, wRH);
+                    }
+                    // Convert a final NotImplemented into an error
+                    mh = firstImplementer(mh, op.errorHandle());
+                }
+            }
+
+            /*
+             * If the composite handle throws, it throws here and we do
+             * not bind a new target. If it's a value-dependent one-off,
+             * we'll get another go.
+             */
+            Object r = mh.invokeExact(v, w);
+
+            /*
+             * Decide whether to embed the composite handle in the
+             * target of the site.
+             */
+            if (chainLength < MAX_CHAIN) {
+                // MH for guarded invocation (becomes new target)
+                guardMH = insertArguments(CLASS2_GUARD, 0, vClass,
+                        wClass);
+                targetMH = guardWithTest(guardMH, mh, getTarget());
+                setTarget(targetMH);
+                chainLength += 1;
+            }
+
+            return r;
+        }
+
+        private Object dynamicResult(BaseType vType, Object v,
+                BaseType wType, Object w)
+                throws EmptyException, Throwable {
+            /*
+             * We know that the op and rop handles in the Representation
+             * objects of class(v) and class(w) are bounce handles, so
+             * we use those in their targets in the type objects
+             * directly.
+             */
+            MethodHandle vMH, wRH;
+            Object r; // To return
+
+            if (wType == vType) {
+                // Same types so only try v.op(w).
+                vMH = op.handle(vType);
+                r = vMH.invokeExact(v, w);
+
+            } else if (wType.isSubTypeOf(vType)) {
+                // type(w) is sub-type of type(v). Try w.rop(v).
+                wRH = op.reflected.handle(wType);
+                // In the reflected MH, self is second.
+                r = wRH.invokeExact(v, w);
+                if (r == Py.NotImplemented) {
+                    // type(w) does not define w.rop. Try v.op.
+                    vMH = op.handle(vType);
+                    r = vMH.invokeExact(v, w);
+                }
+            } else {
+                // Try v.op(w) first.
+                vMH = op.handle(vType);
+                r = vMH.invokeExact(v, w);
+                if (r != Py.NotImplemented) {
+                    // type(v) does not define v.op. Try w.rop(v).
+                    wRH = op.reflected.handle(wType);
+                    // In the reflected MH, self is second.
+                    r = wRH.invokeExact(v, w);
+                }
+            }
+
+            if (r == Py.NotImplemented) { throw op.operandError(v, w); }
+            return r;
+        }
+
+        /**
+         * An adapter for two method handles, {@code a} and {@code b},
+         * such that when the returned handle is invoked, first
+         * {@code a} is invoked, and then if it returned
+         * {@link Py#NotImplemented}, {@code b} is invoked on the same
+         * arguments to replace the result. {@code b} may also return
+         * {@code NotImplemented} but this gets no special treatment.
+         * This corresponds to a central part of the way Python
+         * implements binary operations when each operand offers a
+         * different implementation.
+         *
+         * @param a to invoke unconditionally
+         * @param b if {@code a} returns {@link Py#NotImplemented}
+         * @return the handle that does these invocations
+         */
+        private static MethodHandle firstImplementer(MethodHandle a,
+                MethodHandle b) {
+            // bb = λ(r,v,w): b(v,w)
+            MethodHandle bb = dropArguments(b, 0, O);
+            // rr = λ(r,v,w): r
+            MethodHandle rr = dropArguments(identity(O), 1, O, O);
+            // g = λ(r,v,w): if r!=NotImplemented ? r : b(v,w)
+            MethodHandle g = guardWithTest(IMPLEMENTED_GUARD, rr, bb);
+            // return λ(v,w): g(a(v, w), v, w)
+            return foldArguments(g, a);
+        }
+    }
+
+    @SuppressWarnings("unused") // referenced as CLASS_GUARD
+    private static boolean classEquals(Class<?> clazz, Object obj) {
+        return clazz == obj.getClass();
+    }
+
+    @SuppressWarnings("unused") // referenced as CLASS2_GUARD
+    private static boolean classEquals(Class<?> V, Class<?> W, Object v,
+            Object w) {
+        return V == v.getClass() && W == w.getClass();
+    }
+
+    @SuppressWarnings("unused") // referenced as IMPLEMENTED_GUARD
+    private static boolean isImplemented(Object obj) {
+        return obj != Py.NotImplemented;
+    }
+
+    private static InterpreterError staticInitError(Throwable cause,
+            Class<?> cls) {
+        return new InterpreterError(cause,
+                "failed initialisation of %s", cls.getSimpleName());
+    }
+
+}

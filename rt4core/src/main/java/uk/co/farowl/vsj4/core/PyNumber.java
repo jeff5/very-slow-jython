@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -33,6 +33,21 @@ public class PyNumber extends Abstract {
             return representation(v).op_neg().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_neg.operandError(v);
+        }
+    }
+
+    /**
+     * {@code +v}: unary positive with Python semantics.
+     *
+     * @param v operand
+     * @return {@code +v}
+     * @throws Throwable from invoked implementations
+     */
+    public static Object positive(Object v) throws Throwable {
+        try {
+            return representation(v).op_pos().invokeExact(v);
+        } catch (EmptyException e) {
+            throw SpecialMethod.op_pos.operandError(v);
         }
     }
 
@@ -139,80 +154,62 @@ public class PyNumber extends Abstract {
     }
 
     /**
-     * Helper for implementing a binary operation that has one,
-     * slot-based interpretation.
+     * Helper for implementing binary operation. If neither the left
+     * type nor the right type implements the operation, it will raise
+     * {@link PyExc#TypeError TypeError}.
      *
      * @param v left operand
      * @param w right operand
-     * @param binop operation to apply
+     * @param op operation to apply
      * @return result of operation
      * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
      *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
+    // Compare CPython binary_op and binary_op1 in abstract.c
     private static Object binary_op(Object v, Object w,
-            SpecialMethod binop) throws PyBaseException, Throwable {
-        try {
-            Object r = binary_op1(v, w, binop);
-            if (r != Py.NotImplemented) { return r; }
-        } catch (EmptyException e) {}
-        throw binop.operandError(v, w);
-    }
+            SpecialMethod op) throws PyBaseException, Throwable {
 
-    /**
-     * Helper for implementing binary operation. If neither the left
-     * type nor the right type implements the operation, it will either
-     * return {@link Py#NotImplemented} or throw {@link EmptyException}.
-     * Both mean the same thing.
-     *
-     * @param v left operand
-     * @param w right operand
-     * @param binop operation to apply
-     * @return result or {@code Py.NotImplemented}
-     * @throws EmptyException when an empty slot is invoked
-     * @throws Throwable from the implementation of the operation
-     */
-    private static Object binary_op1(Object v, Object w,
-            SpecialMethod binop) throws EmptyException, Throwable {
+        Representation vRep = representation(v);
+        PyType vType = vRep.pythonType(v);
+        MethodHandle vMH;   // e.g. type(v).__sub__
 
-        Representation vOps = representation(v);
-        PyType vType = vOps.pythonType(v);
+        Representation wRep = representation(w);
+        PyType wType = wRep.pythonType(w);
+        MethodHandle wRH;   // e.g. type(w).__rsub__ (permuted)
 
-        Representation wOps = representation(w);
-        PyType wType = wOps.pythonType(w);
+        Object r;   // will hold the result
 
-        MethodHandle slotv, slotw;
-
-        /*
-         * CPython would also test: (slotw = rbinop.handle(wtype)) ==
-         * slotv as an optimisation , but that's never the case since we
-         * use distinct binop and rbinop slots.
-         */
         if (wType == vType) {
-            // Same types so only try the binop slot
-            slotv = binop.handle(vOps);
-            return slotv.invokeExact(v, w);
+            // Same types so only one type to ask.
+            vMH = op.handle(vRep);
+            r = vMH.invokeExact(v, w);
 
-        } else if (!wType.isSubTypeOf(vType)) {
-            // Ask left (if not empty) then right.
-            slotv = binop.handle(vOps);
-            try {
-                Object r = slotv.invokeExact(v, w);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
-            slotw = binop.getAltSlot(wOps);
-            return slotw.invokeExact(w, v);
+        } else if (wType.isSubTypeOf(vType)) {
+            // Right is sub-type of left: ask first.
+            wRH = op.reflected.handle(wRep);
+            // In the reflected MH, self is the second argument.
+            r = wRH.invokeExact(v, w);
+            if (r == Py.NotImplemented) {
+                // Right does not define reflected op. Try left.
+                vMH = op.handle(vRep);
+                r = vMH.invokeExact(v, w);
+            }
 
         } else {
-            // Right is sub-class: ask first (if not empty).
-            slotw = binop.getAltSlot(wOps);
-            try {
-                Object r = slotw.invokeExact(w, v);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
-            slotv = binop.handle(vOps);
-            return slotv.invokeExact(v, w);
+            // Ask left type then right.
+            vMH = op.handle(vRep);
+            r = vMH.invokeExact(v, w);
+            if (r == Py.NotImplemented) {
+                // Left does not define op. Try right reflected.
+                wRH = op.reflected.handle(wRep);
+                // In the reflected MH, self is the second argument.
+                r = wRH.invokeExact(v, w);
+            }
         }
+
+        if (r == Py.NotImplemented) { throw op.operandError(v, w); }
+        return r;
     }
 
     /**

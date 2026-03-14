@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -14,7 +14,9 @@ import uk.co.farowl.vsj4.types.WithClassAssignment;
 
 /**
  * Miscellaneous static helpers commonly needed to implement Python
- * objects in Java.
+ * objects in Java. Methods from this class rely on the Python type
+ * system, so should be used only after the core types are Java-ready
+ * (or with great care before that).
  */
 public class PyUtil {
 

@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -33,7 +33,7 @@ public class Interpreter {
     public Interpreter() {
         builtinsModule = new BuiltinsModule();
         builtinsModule.exec();
-        // addModule(builtinsModule);
+        addModule(builtinsModule);
     }
 
     /**
@@ -80,7 +80,7 @@ public class Interpreter {
     Object eval(PyCode code, PyDict globals, Object locals) {
         if (locals == null) { locals = globals; }
         globals.putIfAbsent("__builtins__", builtinsModule);
-        PyFunction<?> func = code.createFunction(this, globals);
+        PyFunction func = code.createFunction(this, globals);
         PyFrame<?> f = func.createFrame(locals);
         return f.eval();
     }

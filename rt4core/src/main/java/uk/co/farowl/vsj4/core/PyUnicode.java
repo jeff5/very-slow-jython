@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -3537,7 +3537,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
         @Override
         Object repeat(int n) throws OutOfMemoryError, Throwable {
-            if (n == 0)
+            if (n <= 0)
                 return "";
             else if (n == 1 || length == 0)
                 return s;

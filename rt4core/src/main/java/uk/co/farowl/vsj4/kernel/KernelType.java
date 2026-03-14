@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -351,10 +351,11 @@ public abstract class KernelType extends Representation
      * {@code self} argument that is not of the Python type that defined
      * the descriptor, but is found to be a sub-type of it.
      * <p>
-     * In these circumstances, only the primary representation (index 0)
-     * and accepted (not adopted) classes need be tested. It returns 0
-     * in all cases where there are no such accepted representations,
-     * even if that choice is not assignment compatible.
+     * In these circumstances it is only necessary to try the primary
+     * and accepted (not adopted) classes because adopted classes take a
+     * fast path. It returns 0 in all cases where there are no such
+     * accepted representations, even if selfClasses()[0] is not
+     * assignment compatible.
      *
      * @param selfClass to seek
      * @return index in {@link #selfClasses()}

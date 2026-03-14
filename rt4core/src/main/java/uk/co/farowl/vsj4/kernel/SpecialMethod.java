@@ -1,7 +1,9 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
+import static java.lang.invoke.MethodHandles.dropArguments;
+import static java.lang.invoke.MethodHandles.permuteArguments;
 import static uk.co.farowl.vsj4.core.ClassShorthand.T;
 import static uk.co.farowl.vsj4.support.JavaClassShorthand.*;
 
@@ -12,6 +14,7 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -20,21 +23,24 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.core.Abstract;
 import uk.co.farowl.vsj4.core.Callables;
 import uk.co.farowl.vsj4.core.ClassShorthand;
+import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyBaseException;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyLong;
+import uk.co.farowl.vsj4.core.PyNotImplemented;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The {@code enum SpecialMethod} enumerates the special method names
  * from the Python Data Model and provides behaviour supporting their
  * use by run time system. These are methods that have a particular
  * meaning to the compiler for the implementation of primitive
- * representation (like negation, addition, and method call). When
+ * operations (like negation, addition, and method call). When
  * interpreting Python byte code, they figure in the implementation of
  * the byte codes for primitive operations (UNARY_NEGATIVE, BINARY_OP,
  * CALL), usually via the "abstract object API". When generating JVM
@@ -43,23 +49,27 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * may vary from one version of Python to another. They are not
  * considered public API.
  * <p>
- * Each {@code SpecialMethod} member, given a {@code Representation}
+ * Each {@code SpecialMethod} member, given a {@link Representation}
  * object, is able to produce a method handle that can be used to invoke
  * the corresponding method on a Python object with that Java
- * representation. In the case of a shared representation, the handle
- * will reference the actual type written on the object.
+ * representation. Special methods may be implemented by any class,
+ * whether defined in Java or in Python and are recognised by name in
+ * the type system, when constructing the {@link PyType} that describes
+ * the class.
  * <p>
- * Special methods may be implemented by any class, whether defined in
- * Java or in Python. They will appear first in the dictionary of the
- * {@link PyType} that describes the class as ordinary methods. A
- * {@code SpecialMethod} member, when asked for an invocation
- * {@code MethodHandle}, <i>may</i> produce a handle that looks up its
- * method in the dictionary of the type of the object, or it <i>may</i>
- * produce a handle cached on the {@code Representation}. The choice of
- * behaviour depends on the member. In the case of a shared
- * representation, it must produce a handle that will reference the
- * actual type of the object, before it continues into one of these two
- * behaviours.
+ * A {@code SpecialMethod} member, when asked for an invocation
+ * {@code MethodHandle} through
+ * {@link SpecialMethod#handle(Representation)}, will produce a handle
+ * that leads to an implementation of that special method. Each
+ * {@link Representation} contains a method, with the same name as the
+ * {@code SpecialMethod}, that produces the same handle. This <i>may</i>
+ * be a handle that looks up its method in the dictionary of the type of
+ * the object, or it <i>may</i> produce a handle cached on the
+ * {@code Representation}. The choice of behaviour depends on the
+ * member. In the case of a shared representation, it must produce a
+ * handle that will reference the actual type of the object, before it
+ * continues into one of these two behaviours, while for many basic
+ * types the handle is direct.
  */
 // Compare CPython wrapperbase in descrobject.h
 // aka slotdef in typeobject.c
@@ -220,7 +230,7 @@ public enum SpecialMethod {
      * Defines {@code __radd__} with signature {@link Signature#BINARY},
      * the reflected {@code +} operation.
      */
-    op_radd(Signature.BINARY, "+"),
+    op_radd(Signature.BINARY, "+", true),
     /**
      * Defines {@code __add__} with signature {@link Signature#BINARY},
      * the {@code +} operation.
@@ -230,7 +240,7 @@ public enum SpecialMethod {
      * Defines {@code __rsub__} with signature {@link Signature#BINARY},
      * the reflected {@code -} operation.
      */
-    op_rsub(Signature.BINARY, "-"),
+    op_rsub(Signature.BINARY, "-", true),
     /**
      * Defines {@code __sub__} with signature {@link Signature#BINARY},
      * the {@code -} operation.
@@ -240,7 +250,7 @@ public enum SpecialMethod {
      * Defines {@code __rmul__} with signature {@link Signature#BINARY},
      * the reflected {@code *} operation.
      */
-    op_rmul(Signature.BINARY, "*"),
+    op_rmul(Signature.BINARY, "*", true),
     /**
      * Defines {@code __mul__} with signature {@link Signature#BINARY},
      * the {@code *} operation.
@@ -250,7 +260,7 @@ public enum SpecialMethod {
      * Defines {@code __rmod__} with signature {@link Signature#BINARY},
      * the reflected {@code %} operation.
      */
-    op_rmod(Signature.BINARY, "%"),
+    op_rmod(Signature.BINARY, "%", true),
     /**
      * Defines {@code __mod__} with signature {@link Signature#BINARY},
      * the {@code %} operation.
@@ -260,7 +270,7 @@ public enum SpecialMethod {
      * Defines {@code __rdivmod__} with signature
      * {@link Signature#BINARY}, the reflected {@code divmod} operation.
      */
-    op_rdivmod(Signature.BINARY, "divmod()"),
+    op_rdivmod(Signature.BINARY, "divmod()", true),
     /**
      * Defines {@code __divmod__} with signature
      * {@link Signature#BINARY}, the {@code divmod} operation.
@@ -273,7 +283,8 @@ public enum SpecialMethod {
      * infix operation can be reflected).
      */
     op_rpow(Signature.BINARY, // unexplored territory
-            "($self, value, mod=None, /) Return pow(value, self, mod)."),
+            "($self, value, mod=None, /) Return pow(value, self, mod).",
+            true),
     /**
      * Defines {@code __pow__} with signature {@link Signature#TERNARY},
      * the {@code **} operation and built-in {@code pow()}.
@@ -312,7 +323,7 @@ public enum SpecialMethod {
      * Defines {@code __rlshift__} with signature
      * {@link Signature#BINARY}, the reflected {@code <<} operation.
      */
-    op_rlshift(Signature.BINARY, "<<"),
+    op_rlshift(Signature.BINARY, "<<", true),
     /**
      * Defines {@code __lshift__} with signature
      * {@link Signature#BINARY}, the {@code <<} operation.
@@ -322,7 +333,7 @@ public enum SpecialMethod {
      * Defines {@code __rrshift__} with signature
      * {@link Signature#BINARY}, the reflected {@code >>} operation.
      */
-    op_rrshift(Signature.BINARY, ">>"),
+    op_rrshift(Signature.BINARY, ">>", true),
     /**
      * Defines {@code __rshift__} with signature
      * {@link Signature#BINARY}, the {@code >>} operation.
@@ -333,7 +344,7 @@ public enum SpecialMethod {
      * Defines {@code __rand__} with signature {@link Signature#BINARY},
      * the reflected {@code &} operation.
      */
-    op_rand(Signature.BINARY, "&"),
+    op_rand(Signature.BINARY, "&", true),
     /**
      * Defines {@code __and__} with signature {@link Signature#BINARY},
      * the {@code &} operation.
@@ -343,7 +354,7 @@ public enum SpecialMethod {
      * Defines {@code __rxor__} with signature {@link Signature#BINARY},
      * the reflected {@code ^} operation.
      */
-    op_rxor(Signature.BINARY, "^"),
+    op_rxor(Signature.BINARY, "^", true),
     /**
      * Defines {@code __xor__} with signature {@link Signature#BINARY},
      * the {@code ^} operation.
@@ -353,7 +364,7 @@ public enum SpecialMethod {
      * Defines {@code __ror__} with signature {@link Signature#BINARY},
      * the reflected {@code |} operation.
      */
-    op_ror(Signature.BINARY, "|"),
+    op_ror(Signature.BINARY, "|", true),
     /**
      * Defines {@code __or__} with signature {@link Signature#BINARY},
      * the {@code |} operation.
@@ -413,7 +424,7 @@ public enum SpecialMethod {
      * Defines {@code __rfloordiv__} with signature
      * {@link Signature#BINARY}, the reflected {@code //} operation.
      */
-    op_rfloordiv(Signature.BINARY, "//"),
+    op_rfloordiv(Signature.BINARY, "//", true),
     /**
      * Defines {@code __floordiv__} with signature
      * {@link Signature#BINARY}, the {@code //} operation.
@@ -423,7 +434,7 @@ public enum SpecialMethod {
      * Defines {@code __rtruediv__} with signature
      * {@link Signature#BINARY}, the reflected {@code /} operation.
      */
-    op_rtruediv(Signature.BINARY, "/"),
+    op_rtruediv(Signature.BINARY, "/", true),
     /**
      * Defines {@code __truediv__} with signature
      * {@link Signature#BINARY}, the {@code /} operation.
@@ -452,7 +463,7 @@ public enum SpecialMethod {
      * Defines {@code __rmatmul__} with signature
      * {@link Signature#BINARY}, the reflected {@code @} operation.
      */
-    op_rmatmul(Signature.BINARY, "@"),
+    op_rmatmul(Signature.BINARY, "@", true),
     /**
      * Defines {@code __matmul__} with signature
      * {@link Signature#BINARY}, the {@code @} (matrix multiply)
@@ -510,15 +521,26 @@ public enum SpecialMethod {
 
     /** Method signature to match when defining the special method. */
     public final Signature signature;
+
     /** Name of implementation method to bind e.g. {@code "__add__"}. */
     public final String methodName;
+
     /** Name to use in error messages, e.g. {@code "+"} */
     final String opName;
+
     /**
-     * The {@code null}, except in a reversed op, where it designates
-     * the forward op e.g. in {@code op_radd} it is {@code op_add}.
+     * Marks that {@code this} is a reflected form of some other
+     * operation, e.g. in {@code op_radd} it is {@code true} because it
+     * is the reflection of {@code op_add}.
      */
-    final SpecialMethod alt;
+    public final boolean isreflected;
+
+    /**
+     * Indicates the reflected form of an operation, e.g. in
+     * {@code op_add} it is {@code op_radd}. It is {@code null}
+     * elsewhere (even in the reflected operation).
+     */
+    public final SpecialMethod reflected;
 
     /**
      * Reference to the field used to cache a handle to this method in a
@@ -528,44 +550,69 @@ public enum SpecialMethod {
     final VarHandle cache;
 
     /**
-     * The method handle that should be invoked when the implementation
-     * method is not fixed for the representation, because it may be
-     * changed at any time, or the single representation applies to
-     * multiple types. We cannot then provide a stable direct handle,
-     * and must look it up by name on the type of {@code self}.
+     * The method handle that should be published by a
+     * {@code Representation} when there is no cache for the
+     * {@code SpecialMethod} or a more specific handle cannot be placed
+     * in it. The type object will recognise this condition when it
+     * makes its update to its dictionary.
      * <p>
-     * The handle has the signature {@link #signature} and may add
-     * behaviour, such as validating the return type, tailored to the
-     * specific special method. This is a constant for the
-     * {@code SpecialMethod}, whether cached or not.
+     * The handle has the signature {@link #signature}. Invoking the
+     * {@code generic} handle will cause a lookup of the special method
+     * name ({@link #methodName} on the type of the {@code self}
+     * argument and will call the object it finds, with the arguments
+     * provided to the handle invocation.
      * <p>
      * This handle is needed when the the implementation of the special
      * method is in Python. (It will work, or raise the right error,
-     * with any object found in the dictionary of a type.) It may
-     * therefore be used to call the special methods of a
-     * {@link SharedRepresentation shared representation} where the
-     * clique of replaceable types may disagree about the implementation
-     * method.
-     *
-     * @implNote These weasel words allow the possibility of an
-     *     optimisation. All members of the clique share a common
-     *     ancestor in Python. If all inherit the implementation of this
-     *     special method from the common ancestor, the shared
-     *     representation could cache a direct handle to that common
-     *     implementation taken from the (index zero) representation of
-     *     that ancestor. Any clique member that receives a divergent
-     *     definition of the special method has to set the cache in the
-     *     shared representation to this default.
+     * with any object found in the dictionary of a type.)
      */
-    // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
     public final MethodHandle generic;
 
+    /**
+     * The method handle that should be published by a
+     * {@link SharedRepresentation} when the {@code SpecialMethod} is
+     * allocated a cache in {@code Representation} objects. The
+     * implementation method is not fixed by the representation class,
+     * since the single representation, in principle, applies to
+     * multiple types.
+     * <p>
+     * The handle has the signature {@link #signature}. Invoking the
+     * {@code bounce} handle will invoke the type-specific handle from
+     * the corresponding cache on the type object of {@code self}. This,
+     * in turn, could be either {@link #generic} or a direct handle on a
+     * Java implementation of the special method for that type.
+     * <p>
+     * A {@code SharedRepresentation} should publish the
+     * {@link #generic} handle where the {@code SpecialMethod} is
+     * {@code not} allocated a cache in {@code Representation} objects.
+     */
+    public final MethodHandle bounce;
+
+    /**
+     * The handle representing this {@code SpecialMethod} when it is not
+     * defined (the cache, if any, is "empty"). The empty handle has the
+     * expected {@code MethodType}. In most cases, invoking the handle
+     * throws {@link EmptyException}. In the case of binary operations
+     * and comparisons (but not {@link #op_getitem}) it is a handle that
+     * returns {@code NotImplemented}.
+     * <p>
+     * The idea of this complication is that, in call sites and the
+     * abstract API, we do not need to be ready to catch
+     * {@link EmptyException} as well as testing for
+     * {@code NotImplemented}, which we must to satisfy Python API.
+     */
+    public final MethodHandle empty;
+
+    /**
+     * Throws a {@link PyBaseException TypeError} when invoked (and has
+     * the same signature {@link #signature} as the special method
+     * itself).
+     */
+    MethodHandle error;
+
     /** Description to use in help messages */
     public final String doc;
-
-    /** Throws a {@link PyBaseException TypeError} (same signature) */
-    private MethodHandle operandError;
 
     /**
      * Constructor for enum constants.
@@ -574,37 +621,48 @@ public enum SpecialMethod {
      * @param doc basis of documentation string, allows {@code null},
      *     just a symbol like "+", up to full docstring.
      * @param methodName implementation method (e.g. "__add__")
-     * @param alt alternate special method (e.g. "op_radd")
+     * @param reflected the reflected special method (e.g. "op_radd")
+     * @param isreflected if this is a reflected special method
      */
     SpecialMethod(Signature signature, String doc, String methodName,
-            SpecialMethod alt) {
+            SpecialMethod reflected, boolean isreflected) {
         this.signature = signature;
         this.methodName = dunder(methodName);
-        this.alt = alt;
+        this.isreflected = isreflected;
+        // Cannot be a reflected method and have a reflection
+        assert reflected == null || reflected.isreflected;
+        this.reflected = reflected;
         // If doc is short, assume it's a symbol. Fall back on name.
         this.opName = (doc != null && doc.length() <= 3) ? doc : name();
         // Make up the docstring from whatever shorthand we got.
         this.doc = docstring(doc);
         this.cache = SMUtil.cacheVH(this);
-        // FIXME Slot functions not correctly generated.
-        this.generic = SMUtil.slotMH(this);
+        this.generic = SMUtil.genericMH(this);
+        this.bounce = cache == null ? generic : SMUtil.bounceMH(this);
+        // The definition of "empty" depends on the method
+        MethodHandle e = signature.empty;
+        if (signature == Signature.BINARY) {
+            if (!"__getitem__".equals(this.methodName)) {
+                e = SMUtil.notImplemented;
+            }
+        }
+        this.empty = e;
     }
 
     SpecialMethod(Signature signature) {
-        this(signature, null, null, null);
+        this(signature, null, null, null, false);
     }
 
     SpecialMethod(Signature signature, String doc) {
-        this(signature, doc, null, null);
+        this(signature, doc, null, null, false);
     }
 
-    SpecialMethod(Signature signature, String doc, String methodName) {
-        // XXX Is the method name ever not derived from name()
-        this(signature, doc, methodName, null);
+    SpecialMethod(Signature signature, String doc, boolean reflected) {
+        this(signature, doc, null, null, reflected);
     }
 
     SpecialMethod(Signature signature, String doc, SpecialMethod alt) {
-        this(signature, doc, null, alt);
+        this(signature, doc, null, alt, false);
     }
 
     /**
@@ -619,7 +677,7 @@ public enum SpecialMethod {
      * @return this operation in {@code rep}
      */
     public MethodHandle handle(Representation rep) {
-        // FIXME: Consider thread safety of slots
+        // FIXME: Consider thread safety of cache
         if (cache != null) {
             // The handle is cached on the Representation
             return (MethodHandle)cache.get(rep);
@@ -629,27 +687,25 @@ public enum SpecialMethod {
     }
 
     /**
-     * Get the {@code MethodHandle} on the implementation of the
-     * "alternate" {@code SpecialMethod}'s operation from the given
-     * representation object. For a binary operation this is the
-     * reflected operation. This will either be directly from the cache
-     * on the representation, or a {@link #generic} handle that calls
-     * {@link #methodName} by look-up on the Python type when invoked.
+     * For a binary operation, return the reflected (or original)
+     * operation, otherwise return the operation itself. The forward
+     * binary operations (not comparisons) contain a member that points
+     * to their reflected operation, e.g. {@code op_add.reflected} is
+     * {@code op_radd}. However, the reflected operations do not point
+     * back.
+     * <p>
+     * The purpose of this method is to supply the complete data:
+     * {@code op_add.unreflected()} is {@code op_radd} and
+     * {@code op_radd.unreflected()} is {@code op_add}. We also answer
+     * for the comparison operation opposites:
+     * {@code op_lt.unreflected()} is {@code op_gt}, and so on. Finally,
+     * for all other special methods, the unreflected version is itself,
+     * {@code sm.unreflected()} is {@code sm}.
      *
-     * @param rep target representation object
-     * @return the alternate of this operation in {@code rep}
-     * @throws NullPointerException if there is no alternate
+     * @return the reflected, unreflected or complementary operation
      */
-    public MethodHandle getAltSlot(Representation rep)
-            throws NullPointerException {
-        // FIXME: Consider thread safety of slots
-        VarHandle cache = alt.cache;
-        if (cache != null) {
-            // The handle is cached on the Representation
-            return (MethodHandle)cache.get(rep);
-        } else {
-            return alt.generic;
-        }
+    public SpecialMethod unreflected() {
+        return MethodNameLookup.unreflect[ordinal()];
     }
 
     /**
@@ -678,13 +734,6 @@ public enum SpecialMethod {
      * @return the invocation type of slots of this name.
      */
     public MethodType getType() { return signature.empty.type(); }
-
-    /**
-     * Get the default that fills the slot when it is "empty".
-     *
-     * @return empty method handle for this type of slot
-     */
-    public MethodHandle getEmpty() { return signature.empty; }
 
     /**
      * Each of the methods called {@code slot(self, ...)} looks up this
@@ -784,8 +833,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self);
@@ -793,7 +842,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth);
@@ -820,10 +869,13 @@ public enum SpecialMethod {
     Object slot(Object self, Object w) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw SMUtil.EMPTY; }
+        if (meth == null) {
+            // May return NotImplemented or throw EmptyException
+            return this.empty.invoke(self, w);
+        }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, w);
@@ -831,7 +883,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, w);
@@ -861,8 +913,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, w, m);
@@ -870,7 +922,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, w, m);
@@ -902,8 +954,8 @@ public enum SpecialMethod {
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
         // What kind of object did we find? (Could be anything.)
-        Representation rep = Representation.get(meth);
-        PyType methType = rep.pythonType(meth);
+        Representation methRep = Representation.get(meth);
+        PyType methType = methRep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
             return Callables.call(meth, self, obj, t);
@@ -911,7 +963,7 @@ public enum SpecialMethod {
             // We might still have have to bind meth to self.
             if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                meth = op_get.handle(rep).invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             }
             // meth is now the thing to call.
             return Callables.call(meth, obj, t);
@@ -927,18 +979,32 @@ public enum SpecialMethod {
      *
      * @return throwing method handle for this type of slot
      */
-    MethodHandle getOperandError() {
+    public MethodHandle errorHandle() {
         // Not in the constructor so as not to provoke PyType
-        if (operandError == null) {
+        if (error == null) {
             // Possibly racing, but that's harmless
-            operandError = SMUtil.operandErrorMH(this);
+            error = SMUtil.operandErrorMH(this);
         }
-        return operandError;
+        return error;
     }
 
     /**
+     * Whether this {@code SpecialMethod} is given a corresponding cache
+     * in {@link Representation} objects. If not, the effective
+     * {@code MethodHandle} is always the {@link #generic} one.
+     *
+     * @return {@code true} iff this {@code SpecialMethod} has a cache
+     */
+    public boolean hasCache() { return cache != null; }
+
+    /**
      * Set the cache for this {@code SpecialMethod} in the
-     * {@link Representation} to the given {@code MethodHandle}.
+     * {@link Representation} to the given {@code MethodHandle}. In the
+     * case of a (binary) reflected special method (like
+     * {@code __rsub__}), the handle is transformed by swapping its
+     * arguments. This is the correct thing to so when the handle is on
+     * a method definition, because wherever we invoke a reflected
+     * handle, we do so with the receiver ({@code self}) second.
      * <p>
      * If this special method does not have a cache in
      * {@link Representation} objects, this is a no-op, and effectively
@@ -949,9 +1015,15 @@ public enum SpecialMethod {
      */
     void setCache(Representation rep, MethodHandle mh) {
         if (mh == null || !mh.type().equals(getType())) {
-            throw slotTypeError(this, mh);
+            throw handleTypeError(this, mh);
         }
-        if (cache != null) { cache.set(rep, mh); }
+
+        if (cache != null) {
+            if (isreflected) {
+                mh = permuteArguments(mh, Signature.BINARY.type, 1, 0);
+            }
+            cache.set(rep, mh);
+        }
     }
 
     /**
@@ -966,17 +1038,28 @@ public enum SpecialMethod {
      *
      * @param rep target {@code Representation}
      */
-    void setGeneric(Representation rep) { setCache(rep, generic); }
+    void setGeneric(Representation rep) { cache.set(rep, generic); }
 
     /**
      * Set the cache for this {@code SpecialMethod} in the
-     * {@link Representation} to empty. The empty cache has the expected
-     * {@code MethodType} but throws {@link EmptyException}.
+     * {@link Representation} to be {@link #empty}. The empty handle has
+     * the expected {@code MethodType} but either throws
+     * {@link EmptyException} or returns {@code NotImplemented}.
      *
      * @param rep target {@code Representation}
      */
-    void setEmpty(Representation rep) {
-        setCache(rep, signature.empty);
+    void setEmpty(Representation rep) { cache.set(rep, empty); }
+
+    /**
+     * Set the cache for this {@code SpecialMethod} in the
+     * {@link Representation} to be {@link #bounce}. The bounce handle
+     * invokes the corresponding special method cache on the type
+     * object.
+     *
+     * @param rep target {@code Representation}
+     */
+    void setBounce(SharedRepresentation rep) {
+        cache.set(rep, bounce);
     }
 
     @Override
@@ -1063,12 +1146,13 @@ public enum SpecialMethod {
 
         /**
          * The signature {@code (O,O)O}, for example
-         * {@link SpecialMethod#op_add} or
+         * {@link SpecialMethod#op_add}, {@link SpecialMethod#op_lt} or
          * {@link SpecialMethod#op_getitem}.
          *
          */
         // In CPython: binaryfunc
         BINARY(O, O, O),
+
         /**
          * The signature {@code (O,O,O)O}, used for
          * {@link SpecialMethod#op_pow}.
@@ -1164,7 +1248,8 @@ public enum SpecialMethod {
         INIT(V, O, OA, SA);
 
         /**
-         * The signature was defined with this nominal method type.
+         * Every SpecialMethod that claims this signature must provide a
+         * handle with this method type.
          */
         public final MethodType type;
         /**
@@ -1244,11 +1329,14 @@ public enum SpecialMethod {
          */
 
         /**
-         * Logger for {@code SpecialMethod} operations. Although we
-         * believe what SLF4J say about their logging being lightweight
-         * at levels not enabled, some of our operations are so critical
-         * to performance that we keep logging for initialisation
-         * methods (unless debugging).
+         * Logger for building {@code SpecialMethod} support structures
+         * for special methods. Thought it was just an ordinary
+         * {@code enum}? Think again.
+         * <p>
+         * Although we believe what SLF4J say about their logging being
+         * lightweight at levels not enabled, some of our operations are
+         * so critical to performance that we keep logging for
+         * initialisation methods (unless debugging).
          */
         final static Logger logger =
                 LoggerFactory.getLogger(SpecialMethod.class);
@@ -1280,13 +1368,25 @@ public enum SpecialMethod {
          */
         static final MethodHandle asJavaBoolean;
 
+        /**
+         * Method handle on a function returning
+         * {@link PyNotImplemented}, which binary operations and
+         * comparison operations use instead of {@link Signature#empty}.
+         */
+        static final MethodHandle notImplemented;
+
         static {
             try {
                 asJavaInt = LOOKUP.findStatic(PyLong.class, "asInt",
                         MethodType.methodType(I, O));
                 asJavaBoolean = LOOKUP.findStatic(Abstract.class,
                         "isTrue", MethodType.methodType(B, O));
-            } catch (NoSuchMethodException | IllegalAccessException e) {
+                MethodHandle ni = LOOKUP.findStaticGetter(Py.class,
+                        "NotImplemented", PyNotImplemented.class);
+                notImplemented = dropArguments(ni, 0, List.of(O, O))
+                        .asType(Signature.BINARY.type);
+            } catch (NoSuchMethodException | NoSuchFieldException
+                    | IllegalAccessException e) {
                 // Handle lookup fails somewhere
                 throw new InterpreterError(e,
                         "Failed to initialise SpecialMethod.SMUtil.");
@@ -1333,12 +1433,14 @@ public enum SpecialMethod {
         /**
          * Helper for {@link SpecialMethod} providing a method handle
          * that looks up the special method by name on the type of
-         * {@code self}, and calls the implementation it finds.
+         * {@code self}, and calls the implementation it finds. This
+         * goes into the {@link SpecialMethod#generic} field.
          *
          * @param sm to lookup via the type of {@code self}
          * @return a handle that looks up and calls {@code sm}
          */
-        static MethodHandle slotMH(SpecialMethod sm) {
+        // FIXME Are slot functions all correctly generated?
+        static MethodHandle genericMH(SpecialMethod sm) {
 
             /*
              * There are several SpecialMethod.slot() methods. The one
@@ -1367,6 +1469,11 @@ public enum SpecialMethod {
                 MethodHandle call = LOOKUP.findVirtual(sm.getClass(),
                         "slot", slotMT);
                 MethodHandle f = call.bindTo(sm);
+                if (sm.isreflected) {
+                    // Permute the arguments to be (other, self).
+                    assert mt == Signature.BINARY.type;
+                    f = permuteArguments(f, mt, 1, 0);
+                }
                 /*
                  * Explicitly convert the return value by Python rules
                  * if it is boolean or int.
@@ -1386,9 +1493,71 @@ public enum SpecialMethod {
         }
 
         /**
+         * Helper for {@link SpecialMethod} providing a method handle on
+         * the corresponding trampoline method (e.g.
+         * {@link #op_neg(BaseType, Object)}) invokes the special method
+         * cache on the type of {@code self}. This goes into the
+         * {@link SpecialMethod#bounce} field. We place this type of
+         * handle in a {@link SharedRepresentation}, and the type is
+         * always a {@link ReplaceableType}.
+         *
+         * @param sm to access on the type of {@code self}
+         * @return a handle that looks up and calls {@code sm}
+         */
+        static MethodHandle bounceMH(SpecialMethod sm) {
+
+            // We aim to create:
+            // bounce = λ(s, ...): trampoline(sm)(type(s), s, ...)
+            // or for a *reflected* binary operation:
+            // bounce = λ(v, w): trampoline(sm)(type(w), v, w)
+            // because we shall call it with the receiver second.
+            try {
+                /*
+                 * Find the trampoline method handle smt. The signature
+                 * is that of the special method, with PyType inserted
+                 * first.
+                 */
+                // smt = λ(t,s): BaseType.cast(t,s,...)
+                MethodHandle smt = LOOKUP.findStatic(
+                        SpecialMethod.class, sm.name(),
+                        sm.signature.type.insertParameterTypes(0, T));
+
+                /*
+                 * As bounce is only published from shared
+                 * representations, we can rely on WithClass.getType().
+                 */
+                // type = λ(s): BaseType.cast(type(s))
+                MethodHandle type = LOOKUP.findVirtual(WithClass.class,
+                        "getType", MethodType.methodType(T));
+                /*
+                 * It will be safe to cast from Object to WithClass as
+                 * the self-class was mapped to a SharedRepresentation.
+                 */
+                type = type.asType(MethodType.methodType(T, O));
+
+                // bounce = λ(s,...): smt(type(s),s,...)
+                // or bounce = λ(v,w): smt(type(w),v,w)
+                if (sm.isreflected) {
+                    // type = λ(v,w): type(w)
+                    type = MethodHandles.dropArguments(type, 0, O);
+                }
+                MethodHandle bounce =
+                        MethodHandles.foldArguments(smt, type);
+
+                assert bounce.type() == sm.signature.type;
+                return bounce;
+
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw new InterpreterError(e, "creating bounce for %s",
+                        sm.methodName);
+            }
+        }
+
+        /**
          * Helper for {@link SpecialMethod} and thereby for call sites
-         * providing a method handle that throws a Python exception when
-         * invoked, with an appropriate message for the operation.
+         * providing a method handle that raises a Python exception when
+         * invoked with the arguments of the special method, having an
+         * appropriate message for the operation.
          * <p>
          * To be concrete, if the special method is a binary operation,
          * the returned handle may throw something like:<pre>
@@ -1401,9 +1570,10 @@ public enum SpecialMethod {
         static MethodHandle operandErrorMH(SpecialMethod sm) {
             // The type of the method that creates the TypeError
             MethodType errorMT = sm.getType()
-                    .insertParameterTypes(0, SpecialMethod.class)
+                    // .insertParameterTypes(0, SpecialMethod.class)
+                    // Java class of Python TypeError is:
                     .changeReturnType(PyBaseException.class);
-            // Exception thrower with nominal return type of the slot
+            // Exception thrower with nominal return type
             // thrower = λ(e): throw e
             MethodHandle thrower = MethodHandles.throwException(
                     sm.getType().returnType(), PyBaseException.class);
@@ -1415,26 +1585,12 @@ public enum SpecialMethod {
                  * slot signature) prepended with this slot. We'll only
                  * call it if the handle is invoked.
                  */
-                // error = λ(slot, v, w, ...): f(slot, v, w, ...)
-                MethodHandle error;
-                switch (sm.signature) {
-                    case UNARY:
-                        // Same name, although signature differs ...
-                    case BINARY:
-                        error = LOOKUP.findVirtual(SpecialMethod.class,
-                                "operandError", errorMT);
-                        break;
-                    default:
-                        // error = λ(slot): default(slot, v, w, ...)
-                        error = LOOKUP.findStatic(SMUtil.class,
-                                "defaultOperandError", errorMT);
-                        // error = λ(slot, v, w, ...): default(slot)
-                        error = MethodHandles.dropArguments(error, 0,
-                                sm.getType().parameterArray());
-                }
+                // error = λ(sm, v, w, ...): sm.operandError(v, w, ...)
+                MethodHandle error = LOOKUP.findVirtual(
+                        SpecialMethod.class, "operandError", errorMT);
 
                 // A handle that creates and throws the exception
-                // λ(v, w, ...): throw f(slot, v, w, ...)
+                // λ(v, w, ...): throw f(sm, v, w, ...)
                 return MethodHandles.collectArguments(thrower, 0,
                         error.bindTo(sm));
 
@@ -1442,19 +1598,6 @@ public enum SpecialMethod {
                 throw new InterpreterError(e,
                         "creating TypeError handle for %s", sm.name());
             }
-        }
-
-        /**
-         * Uninformative exception, mentioning the special method.
-         *
-         * @param sm special method receiving a bad operand
-         * @return an exception to throw
-         */
-        @SuppressWarnings("unused")  // reflected in operandError
-        private static PyBaseException
-                defaultOperandError(SpecialMethod sm) {
-            return PyErr.format(PyExc.TypeError,
-                    "bad operand type for %s", sm.opName);
         }
     }
 
@@ -1506,7 +1649,7 @@ public enum SpecialMethod {
                             && !"<= == != >=".contains(doc)) {
                         // In-place binary operation.
                         help = "Return self " + doc + " value.";
-                    } else if (alt == null) {
+                    } else if (reflected == null) {
                         // Binary L op R.
                         help = "Return self " + doc + " value.";
                     } else {
@@ -1556,13 +1699,15 @@ public enum SpecialMethod {
     private static class MethodNameLookup {
         /** Lookup from name to {@code SpecialMethod}. */
         static final Map<String, SpecialMethod> table;
+        static final SpecialMethod[] unreflect;
 
         static {
             SpecialMethod[] methods = SpecialMethod.values();
             HashMap<String, SpecialMethod> t =
                     new HashMap<>(2 * methods.length);
+            // Build table mapping name to operation
             for (SpecialMethod s : methods) {
-                // Add to table
+                // Add to name lookup table
                 t.put(s.methodName, s);
                 // This is a good time to confirm initialisation
                 SMUtil.logger.atTrace()
@@ -1575,7 +1720,29 @@ public enum SpecialMethod {
                 SMUtil.logger.atTrace()
                         .log(() -> s.doc.replace("\n", "\\n"));
             }
+            // Make table unmodifiable
             table = Collections.unmodifiableMap(t);
+
+            // Build table reflected operation to unreflected
+            unreflect = new SpecialMethod[methods.length];
+            for (SpecialMethod s : methods) {
+                // Add to (un)reflected operations table
+                SpecialMethod r = s.reflected;
+                if (r != null) {
+                    // E.g. (s,r) == (op_add, op_radd)
+                    assert r.isreflected;
+                    unreflect[r.ordinal()] = s;
+                    unreflect[s.ordinal()] = r;
+                } else if (!s.isreflected) {
+                    // Other things are themselves
+                    unreflect[s.ordinal()] = s;
+                }
+            }
+            // Except for these special cases:
+            unreflect[op_lt.ordinal()] = op_gt;
+            unreflect[op_le.ordinal()] = op_ge;
+            unreflect[op_ge.ordinal()] = op_le;
+            unreflect[op_gt.ordinal()] = op_lt;
         }
     }
 
@@ -1590,10 +1757,24 @@ public enum SpecialMethod {
      * @param mh offered value found unsuitable
      * @return exception with message filled in
      */
-    private static InterpreterError slotTypeError(SpecialMethod sm,
+    private static InterpreterError handleTypeError(SpecialMethod sm,
             MethodHandle mh) {
-        String fmt = "%s not of required type %s for slot %s";
+        String fmt = "%s not of required type %s for %s";
         return new InterpreterError(fmt, mh, sm.getType(), sm);
+    }
+
+    /**
+     * Create a {@link PyBaseException TypeError} for the named unary
+     * operation, along the lines "bad operand type for OP". This is the
+     * default message from the handle returned by
+     * {@link #errorHandle()}. Generally, we try to be more specific and
+     * include argument types.
+     *
+     * @return an exception to throw
+     */
+    PyBaseException operandError() {
+        return PyErr.format(PyExc.TypeError,
+                "bad operand type for %.200s", opName);
     }
 
     /**
@@ -1637,4 +1818,47 @@ public enum SpecialMethod {
 
     private static final String UNSUPPORTED_TYPES =
             "unsupported operand type(s) for %s: '%.100s' and '%.100s'";
+
+    // Trampolines ---------------------------------------------------
+    /*
+     * These methods are referenced in SMUtil.bounceMH to create the
+     * bounce handle of corresponding special methods for which a cache
+     * is allocated on Representation objects. Their signature is always
+     * that of the special method, with PyType inserted first.
+     */
+    @SuppressWarnings("unused")
+    private static Object op_neg(PyType type, Object self)
+            throws Throwable {
+        return BaseType.cast(type).op_neg().invokeExact(self);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_abs(PyType type, Object self)
+            throws Throwable {
+        return BaseType.cast(type).op_abs().invokeExact(self);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_add(PyType vType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(vType).op_add().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_radd(PyType wType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(wType).op_radd().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_sub(PyType vType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(vType).op_sub().invokeExact(v, w);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object op_rsub(PyType wType, Object v, Object w)
+            throws Throwable {
+        return BaseType.cast(wType).op_rsub().invokeExact(v, w);
+    }
 }

@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -1050,76 +1050,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             return PythonNewMethod.class;
         }
     }
-
-    // TODO Not ready for binary operation call-sites this yet
-/// **
-// * Create a table of {@code MethodHandle}s from binary operations
-// * defined in the given class, on behalf of the type given. This
-// * table is 3-dimensional, being indexed by the slot of the method
-// * being defined, which must be a binary operation, and the indices
-// * of the operand classes in the type. These handles are used
-// * privately by the type to create call sites. Although the process
-// * of creating them is similar to making wrapper descriptors, these
-// * structures do not become exposed as descriptors.
-// *
-// * @param lookup authorisation to access methods
-// * @param binops to introspect for binary operations
-// * @param type to which these descriptors apply
-// * @return attributes defined (in the order first encountered)
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// static Map<SpecialMethod, BinopGrid> binopTable(Lookup lookup,
-// Class<?> binops, PyType type) throws InterpreterError {
-//
-// // Iterate over methods looking for the relevant annotations
-// Map<SpecialMethod, BinopGrid> defs = new HashMap<>();
-//
-// for (Method m : binops.getDeclaredMethods()) {
-// // If it is a special method, record the definition.
-// String name = m.getName();
-// SpecialMethod slot = SpecialMethod.forMethodName(name);
-// if (slot != null && slot.signature == Signature.BINARY) {
-// binopTableAdd(defs, slot, m, lookup, binops, type);
-// }
-// }
-//
-// // Check for nulls in the table.
-// for (BinopGrid grid : defs.values()) { grid.checkFilled(); }
-//
-// return defs;
-// }
-//
-/// **
-// * Add a method handle to the table, verifying that the method type
-// * produced is compatible with the {@link #slot}.
-// *
-// * @param defs the method table to add to
-// * @param slot being matched
-// * @param m implementing method
-// * @param lookup authorisation to access fields
-// * @param binops class defining class-specific binary operations
-// * @param type to which these belong
-// */
-// private static void binopTableAdd(Map<SpecialMethod, BinopGrid> defs,
-// SpecialMethod slot, Method m, Lookup lookup, Class<?> binops,
-// PyType type) {
-//
-// // Get (or create) the table for this slot
-// BinopGrid def = defs.get(slot);
-// if (def == null) {
-// // A new special method has been encountered
-// def = new BinopGrid(slot, type);
-// defs.put(slot, def);
-// }
-//
-// try {
-// // Convert the method to a handle
-// def.add(lookup.unreflect(m));
-// } catch (IllegalAccessException | WrongMethodTypeException e) {
-// throw new InterpreterError(e,
-// "ill-formed or inaccessible binary op '%s'", m);
-// }
-// }
 
     /**
      * Specialisation of {@link SpecAdder} to {@link GetSetSpec}, useful

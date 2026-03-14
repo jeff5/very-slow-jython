@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -18,7 +18,7 @@ import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
-import uk.co.farowl.vsj4.types.NewInstance;
+import uk.co.farowl.vsj4.types.Constructible;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -42,7 +42,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * types), this mapping will be developed as instances of the classes
  * are encountered in Python code.
  */
-public abstract class Representation implements NewInstance {
+public abstract class Representation implements Constructible {
 
     /** Logger for representation object activity in the kernel. */
     protected static final Logger logger =
@@ -664,10 +664,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __rsub__} with signature
      *     {@link Signature#BINARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_rsub() {
-        return SpecialMethod.op_rsub.generic;
-    }
+    public MethodHandle op_rsub() { return op_rsub; }
+
+    private MethodHandle op_rsub;
 
     /**
      * Return a matching implementation of {@code __sub__} with
@@ -676,10 +675,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __sub__} with signature
      *     {@link Signature#BINARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_sub() {
-        return SpecialMethod.op_sub.generic;
-    }
+    public MethodHandle op_sub() { return op_sub; }
+
+    private MethodHandle op_sub;
 
     /**
      * Return a matching implementation of {@code __rmul__} with
@@ -791,10 +789,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __neg__} with signature
      *     {@link Signature#UNARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_neg() {
-        return SpecialMethod.op_neg.generic;
-    }
+    public final MethodHandle op_neg() { return op_neg; }
+
+    private MethodHandle op_neg;
 
     /**
      * Return a matching implementation of {@code __pos__} with
@@ -816,10 +813,9 @@ public abstract class Representation implements NewInstance {
      * @return handle on {@code __abs__} with signature
      *     {@link Signature#UNARY}.
      */
-    @SuppressWarnings("static-method")
-    public MethodHandle op_abs() {
-        return SpecialMethod.op_abs.generic;
-    }
+    public final MethodHandle op_abs() { return op_abs; }
+
+    private MethodHandle op_abs;
 
     /**
      * Return a matching implementation of {@code __bool__} with

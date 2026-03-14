@@ -305,16 +305,16 @@ class FormatTest extends UnitTestSupport {
          * is:<pre>
          * ffmt = ["f", "8.3f", "12f", "0.2f", "+6.1F",
          *         "_f", "12_.4f", "012.4f", "012,.4f",
-         *         "<15.1f", "^15.1f", ">15.1F",
-         *         "~<15.1f", "~^15.1F", "~>15.1f",
+         *         "&lt;15.1f", "^15.1f", ">15.1F",
+         *         "~&lt;15.1f", "~^15.1F", "~>15.1f",
          *         "", "g", "8.3g", "12g", "0.2g", "+6.1G",
          *         "_", "_g", "12_.4g", "012.4g", "012,.4g",
-         *         "<15.1g", "^15.1g", ">15.1G",
-         *         "~<15.1g", "~^15.1G", "~>15.1g",
+         *         "&lt;15.1g", "^15.1g", ">15.1G",
+         *         "~&lt;15.1g", "~^15.1G", "~>15.1g",
          *         "e", "8.3e", "12e", "0.2e", "+6.1E", "12_.4e", "012.4e",
          *         "_e", "12_.4e", "012.4e", "012,.4e",
-         *         "<15.1e", "^15.1e", ">15.1E",
-         *         "~<15.1e", "~^15.1E", "~>15.1e"]
+         *         "&lt;15.1e", "^15.1e", ">15.1E",
+         *         "~&lt;15.1e", "~^15.1E", "~>15.1e"]
         *
          * for f in ffmt:
          *     print(gen_example('floatExample', fval, f))
@@ -808,7 +808,7 @@ class FormatTest extends UnitTestSupport {
 
         /**
          * The values corresponding to the expected results in the
-         * stream of examples provided by {@link #stringExamples()}. In
+         * stream of examples provided by {@link #strExamples()}. In
          * the Python script for generating test data, this array
          * is:<pre>
          * sval = ["", "Test", "café", "λόγος",
@@ -824,9 +824,9 @@ class FormatTest extends UnitTestSupport {
          * {@link #VALUES}. In the Python script for generating test
          * data, the fragment that generates the test argument sets
          * is:<pre>
-         * sfmt = ["", "s", "5s", "<5s", "^5s", ">5s", "4.3s",
-         *         "20s", "<20s", "^20s", ">20s", "20.3s",
-         *         "20", "<20", "^20", ">20"]
+         * sfmt = ["", "s", "5s", "&lt;5s", "^5s", ">5s", "4.3s",
+         *         "20s", "&lt;20s", "^20s", ">20s", "20.3s",
+         *         "20", "&lt;20", "^20", ">20"]
          *
          * for f in sfmt:
          *     print(gen_example('strExample', sval, f))

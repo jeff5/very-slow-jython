@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyTuple;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.EmptyException;
@@ -142,17 +143,20 @@ public class MethodHandleFormationTest {
     /**
      * Test that caches for methods applicable to numbers (CPython
      * {@code nb_*} slots) accept only the right type of method handles.
+     * @throws Throwable unexpectedly
      */
     @SuppressWarnings("static-method")
     @Test
-    void numericSlots() {
+    void numericSlots() throws Throwable {
         // Type defining none of the reserved names
         final BaseType number = BaseType.cast(BasicallyEmpty.TYPE);
         Object o = new BasicallyEmpty();
 
         assertThrows(EmptyException.class, () -> SpecialMethod.op_neg
                 .handle(number).invokeExact(o));
-        assertThrows(EmptyException.class, () -> SpecialMethod.op_add
+
+        // Binary operations return NotImplemented instead of throwing
+        assertEquals(Py.NotImplemented, SpecialMethod.op_add
                 .handle(number).invokeExact(o, o));
 
         // Make method handles of the shape corresponding to caches

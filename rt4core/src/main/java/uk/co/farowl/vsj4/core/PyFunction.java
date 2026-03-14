@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -6,21 +6,32 @@ import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.core.PyCode.Layout;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Member;
 import uk.co.farowl.vsj4.types.Exposed.Setter;
+import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithDict;
 
 /**
- * Python {@code function} object as created by a function definition
- * and subsequently called.
- *
- * @param <C> implementing class of {@code code} object
+ * Python {@code function} object as created by executing a Python
+ * function definition and will subsequently be callable from Python. A
+ * {@code PyFunction} is not sensitive to the particular implementation
+ * of {@link PyCode} passed to it. It must deal impartially with CPython
+ * byte code and JVM byte code since the {@code __code__} attribute is
+ * assignable with any {@code code} object.
+ * <p>
+ * The pattern behind {@code PyFunction}, that permits this flexibility
+ * is that a {@code PyFunction} is created from a Python-oriented
+ * description of the arguments and an initial {@code code} object. The
+ * particular sub-class of {@link PyCode} representing the {@code code}
+ * object, chosen by the compiler that processes the Python function or
+ * module body, supplies the specialisations subsequently needed.
  */
-public abstract class PyFunction<C extends PyCode> implements WithDict {
+public class PyFunction implements WithDict {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType
@@ -37,7 +48,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * but only with the right implementation type for the concrete
      * class of the function. Not {@code null}.
      */
-    protected C code;
+    protected PyCode code;
 
     /**
      * The read-only {@code __globals__} attribute is a {@code dict}:
@@ -62,8 +73,9 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
     protected PyDict kwdefaults;
 
     /**
-     * The read-only {@code __closure__} attribute, or {@code null}. See
-     * {@link #setClosure(Collection) __closure__} access method
+     * The read-only {@code __closure__} attribute, or {@code null}
+     * meaning {@code None}. See {@link #setClosure(Collection)
+     * __closure__} access method.
      */
     protected PyCell[] closure;
 
@@ -85,22 +97,25 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
 
     /**
      * The {@code __module__} attribute, can be anything or {@code null}
-     * meaning {@code None}
+     * meaning {@code None}.
      */
     @Member(value = "__module__")
     Object module;
 
     /**
      * The {@code __annotations__} attribute, a {@code dict} or
-     * {@code null}.
+     * {@code null} which becomes an empty dictionary on use.
      */
     PyDict annotations;
 
     /** The function qualified name ({@code __qualname__} attribute). */
     private String qualname;
 
+    /** Argument parser matched to {@link #code}. */
+    private ArgParser argParser;
+
     /**
-     * Create a PyFunction supplying most of the attributes at
+     * Create a {@code PyFunction} supplying most of the attributes at
      * construction time.
      * <p>
      * The strongly-typed {@code defaults}, {@code kwdefaults},
@@ -109,6 +124,31 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * exposed as a {@code dict}, but may be presented to the
      * constructor as a {@code dict} or {@code tuple} of keys and values
      * (or {@code null}).
+     * <p>
+     * A {@code PyFunction} is not sensitive to the particular
+     * implementation of {@link PyCode} passed to it. The constructor
+     * accepts a Python-oriented description of the parameters and their
+     * defaults and a alongside the (initial) code object. Behaviour
+     * that is sensitive to the implementation has to be supplied by the
+     * {@code PyCode} itself and the {@link PyFrame} it returns from
+     * {@link PyCode#createFrame(PyFunction, Object)
+     * PyCode.createFrame}.
+     * <p>
+     * The Python-oriented parameter description is converted to a
+     * parser by that {@code code} object. The code object, and any
+     * subsequent replacement, has to be consistent with the parameter
+     * descriptions given to the constructor.
+     * <p>
+     * The parser is able to place actual arguments (and defaults) into
+     * <i>logical addresses</i> in instances of the {@link PyFrame}
+     * sub-type specific to that code object implementation. (The
+     * logical address of a parameter is its index in that PyCode's
+     * {@link Layout#localnames() layout().localnames()}.)
+     * <p>
+     * When we come to call the function, it obtains a {@link PyFrame}
+     * of the specific implementation from the {@link PyCode}, and from
+     * that frame, a wrapper that translates the index of a parameter
+     * into an operation to set that parameter in the frame.
      *
      * @implNote We differ from CPython in requiring a reference to the
      *     interpreter as an argument. Also, we favour a constructor in
@@ -117,9 +157,9 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      *     rather than added after construction.
      *
      * @param interpreter providing the module context not {@code null}
-     * @param code to execute not {@code null}
-     * @param globals name space to treat as global variables not
-     *     {@code null}
+     * @param code to execute (not {@code null})
+     * @param globals name space to treat as global variables (not
+     *     {@code null})
      * @param defaults default positional argument values or
      *     {@code null}
      * @param kwdefaults default keyword argument values or {@code null}
@@ -129,7 +169,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      *     size expected by code or {@code null} if empty.
      */
     // Compare CPython PyFunction_NewWithQualName in funcobject.c
-    PyFunction(Interpreter interpreter, C code, PyDict globals,
+    PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
             Object[] defaults, PyDict kwdefaults, Object annotations,
             PyCell[] closure) {
         // We differ from CPython in requiring this reference
@@ -160,6 +200,27 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
 
         // Now we can check the code object against the closure etc.
         this.code = checkFreevars(code);
+
+        // Construct a parser to move arguments to the frame
+        this.argParser = code.buildParser().defaults(defaults)
+                .kwdefaults(kwdefaults);
+    }
+
+    /**
+     * Create a simple {@code PyFunction} supplying minimal attributes
+     * at construction time.
+     *
+     * @implNote We differ from CPython in requiring a reference to the
+     *     interpreter as an argument.
+     *
+     * @param interpreter providing the module context not {@code null}
+     * @param code to execute not {@code null}
+     * @param globals name space to treat as global variables not
+     *     {@code null}
+     */
+    // Compare CPython PyFunction_NewWithQualName in funcobject.c
+    PyFunction(Interpreter interpreter, PyCode code, PyDict globals) {
+        this(interpreter, code, globals, null, null, null, null);
     }
 
     /**
@@ -187,14 +248,16 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
 
     /**
      * Create a {@code PyFrame} that will execute this
-     * {@code PyFunction}. This frame should be "loose":
-     * {@link PyFrame#back} should be {@code null} and it should not be
-     * on any thread's stack.
+     * {@code PyFunction} on calling {@link PyFrame#eval()}. This frame
+     * will be created "loose": {@link PyFrame#back} will be
+     * {@code null} as it will not be on any thread's stack.
      *
      * @param locals name space to treat as local variables
      * @return the frame
      */
-    abstract PyFrame<? extends C> createFrame(Object locals);
+    PyFrame<? extends PyCode> createFrame(Object locals) {
+        return code.createFrame(this, locals);
+    }
 
     // attributes ----------------------------------------------------
 
@@ -211,7 +274,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @return the {@code __code__} object of this function.
      */
     @Getter("__code__")
-    C getCode() { return code; }
+    PyCode getCode() { return code; }
 
     /**
      * Set the {@code __code__} object of this function.
@@ -219,7 +282,11 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @param code new code object to assign
      */
     @Setter("__code__")
-    void setCode(C code) { this.code = checkFreevars(code); }
+    void setCode(PyCode code) {
+        this.code = checkFreevars(code);
+        argParser = code.buildParser().defaults(defaults)
+                .kwdefaults(kwdefaults);
+    }
 
     /** @return the {@code __name__} attribute. */
     @Getter("__name__")
@@ -261,7 +328,10 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @param defaults to set
      */
     @Setter("__defaults__")
-    abstract void setDefaults(PyTuple defaults);
+    void setDefaults(PyTuple defaults) {
+        this.defaults = defaults.toArray();
+        getArgParser().defaults(this.defaults);
+    }
 
     /**
      * @return {@code __kwdefaults__} or {@code None}.
@@ -278,7 +348,10 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @param kwdefaults specifying {@code __kwdefaults__}
      */
     @Setter("__kwdefaults__")
-    abstract void setKwdefaults(PyDict kwdefaults);
+    void setKwdefaults(PyDict kwdefaults) {
+        this.kwdefaults = kwdefaults;
+        getArgParser().kwdefaults(this.kwdefaults);
+    }
 
     /**
      * @return the {@code __closure__ tuple} or {@code None}.
@@ -348,17 +421,22 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
 
     /**
      * Set the {@code __annotations__} attribute, which is always
-     * exposed as a Python {@code dict}. In certain cases a
-     * {@code tuple} may be supplied as the argument.
+     * exposed as a Python {@code dict}.
+     * <p>
+     * In certain cases a {@code tuple} may be supplied as the argument.
+     * In order to understand why, study the CPython
+     * {@code MAKE_FUNCTION} opcode and {@code func_get_annotation_dict}
+     * in {@code funcobject.c}.
      *
      * @param anno specifying the annotations.
      */
     @Setter("__annotations__")
     private void setAnnotations(Object anno) {
-        if (anno instanceof PyDict) {
-            annotations = (PyDict)anno;
-        } else if (anno instanceof PyTuple) {
-            annotations = ((PyTuple)anno).pairsToDict();
+        if (anno instanceof PyDict d) {
+            annotations = d;
+        } else if (anno instanceof PyTuple t) {
+            // TODO Consider making into a lazy get as in CPython
+            annotations = t.pairsToDict();
         } else {
             // null or wrong type
             throw _PyUtil.attrMustBe("__annotations__", "a dictionary",
@@ -377,18 +455,43 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @return the return from the call
      * @throws Throwable for errors raised in the function
      */
-    abstract Object __call__(Object[] args, String[] names)
-            throws Throwable;
+    Object __call__(Object[] args, String[] names) throws Throwable {
+        // Create a loose frame matching the PyCode
+        PyFrame<? extends PyCode> frame = code.createFrame(this, null);
+
+        // Custom implementations may have a fast path
+        FastCall fast = frame;
+        if (names == null || names.length == 0) {
+            // Only positional arguments were given
+            switch (args.length) {
+                case 0:
+                    return fast.call();
+                case 1:
+                    return fast.call(args[0]);
+                case 2:
+                    return fast.call(args[0], args[1]);
+                case 3:
+                    return fast.call(args[0], args[1], args[2]);
+                case 4:
+                    return fast.call(args[0], args[2], args[2],
+                            args[3]);
+                default:
+                    // If this fails, add more cases.
+                    assert args.length > FastCall.MAX_POSITIONAL;
+                    break;
+            }
+            // Fall through to the slow path
+        }
+
+        // Fill the frame variables and eval() the frame.
+        return frame.call(args, names);
+    }
 
     @SuppressWarnings("unused")
     private Object __repr__() {
         return String.format("<function %.100s at %#x>", qualname,
                 Py.id(this));
     }
-
-    // FastCall support ----------------------------------------------
-
-    // XXX ... is needed.
 
     // Plumbing ------------------------------------------------------
 
@@ -411,6 +514,16 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
     Interpreter getInterpreter() { return interpreter; }
 
     /**
+     * Return the argument parser for this function. This parser is
+     * derived from the code object last assigned to the function. It is
+     * used to create a wrapper on the frame created when the function
+     * is called.
+     *
+     * @return the argParser
+     */
+    ArgParser getArgParser() { return argParser; }
+
+    /**
      * Check that the number of free variables expected by the given
      * code object matches the length of the existing {@link #closure}
      * (or is zero if {@code closure==null}).
@@ -418,7 +531,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @param c object to test (not {@code null}).
      * @return {@code c}
      */
-    protected C checkFreevars(C c) {
+    protected PyCode checkFreevars(PyCode c) {
         PyUtil.errorIfNull(c, () -> PyErr.format(PyExc.TypeError,
                 "__code__ must be set to a code object"));
         int nfree = c.layout().nfreevars();

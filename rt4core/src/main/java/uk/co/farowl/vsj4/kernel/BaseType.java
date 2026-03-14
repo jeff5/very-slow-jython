@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -78,9 +79,14 @@ public abstract sealed class BaseType extends KernelType implements
     protected static final Logger logger =
             LoggerFactory.getLogger(BaseType.class);
 
-    /** Subclass factory} to use in creating subclasses. */
+    /** Write generated classes here. (Dump with {@code javap}.) */
+    // Make this null to turn off this debug output.
+    private static Path DEBUG_SUBCLASSES = Path.of("temp");
+
+    /** Subclass factory to use in creating subclasses. */
+    // Write generated classes as files. (Dump with {@code javap}.)
     static final SubclassFactory SUBCLASS_FACTORY =
-            new SubclassFactory("VSJ$%s$%d");
+            new SubclassFactory("VSJ$%s$%d", DEBUG_SUBCLASSES);
 
     /**
      * Name of the type. This is the name exposed as {@link #getName()
@@ -429,15 +435,33 @@ public abstract sealed class BaseType extends KernelType implements
      *
      * @param t presented to our API somewhere
      * @return {@code t} if it is a {@code BaseType}
-     * @throws PyBaseException {@code t} is not a {@code BaseType}
+     * @throws ClassCastException {@code t} is not a {@code BaseType}
+     */
+    public static BaseType cast(PyType t) throws ClassCastException {
+        if (t instanceof BaseType bt) {
+            return bt;
+        } else {
+            throw new ClassCastException(String.format(
+                    "non-Jython PyType encountered: %s", t.getClass()));
+        }
+    }
+
+    /**
+     * Cast the argument to a Jython type object (or throw). At some
+     * interfaces we may receive an object purporting to be a Python
+     * type, but it isn't (even if it may be a {@code PyType}).
+     *
+     * @param t presented to our API somewhere
+     * @return {@code t} if it is a {@code BaseType}
+     * @throws ClassCastException {@code t} is not a {@code BaseType}
+     * @throws PyBaseException {@code t} is not a {@code PyType}
      */
     public static BaseType cast(Object t)
             throws PyBaseException, ClassCastException {
         if (t instanceof BaseType bt) {
             return bt;
-        } else if (t instanceof PyType) {
-            throw new ClassCastException(String.format(
-                    "non-Jython PyType encountered: %s", t.getClass()));
+        } else if (t instanceof PyType pytype) {
+            return cast(pytype); // throws ClassCastException
         } else {
             throw Abstract.requiredTypeError("a type", t);
         }
@@ -1232,27 +1256,48 @@ public abstract sealed class BaseType extends KernelType implements
     }
 
     /**
-     * Update the cache for each representation of this type, and
-     * certain feature values, by looking up the definition along the
-     * MRO.
+     * Update the cache for each representation of this type, or just
+     * the type itself if it is replaceable, from a lookup result.
      *
      * @param sm the special method
      * @param result of looking up the name, may be ({@code null}
      */
     private void updateSpecialMethodCache(SpecialMethod sm,
             LookupResult result) {
+        if (sm.hasCache()) {
+            // There is a cache for this special method.
+            List<Representation> reps = representations();
+            if (this instanceof ReplaceableType) {
+                assert reps.get(0) instanceof SharedRepresentation;
+                // Update the type object itself.
+                reps = List.of(this);
+            }
+            updateSpecialMethodCache(sm, result, reps);
+        }
+    }
 
-        if (sm.cache == null) {
-            // There is no cache for this special method. Ignore.
-            return;
+    /**
+     * Update the cache for the specified representations from a lookup
+     * result.
+     *
+     * @param sm the special method
+     * @param result of looking up the name, may be ({@code null}
+     * @param representations to update
+     */
+    private void updateSpecialMethodCache(SpecialMethod sm,
+            LookupResult result, List<Representation> representations) {
 
-        } else if (result == null) {
+        logger.atTrace().setMessage("update SM cache {}.{} from {}")
+                .addArgument(() -> getName())
+                .addArgument(() -> sm.name()).addArgument(result).log();
+
+        if (result == null) {
             /*
              * The special method is not defined for this type. Install
              * a handle that throws EmptyException. (Unlike in CPython,
              * null won't do.)
              */
-            for (Representation rep : representations()) {
+            for (Representation rep : representations) {
                 sm.setEmpty(rep);
             }
         } else if (result.status == LookupStatus.ONCE) {
@@ -1260,7 +1305,7 @@ public abstract sealed class BaseType extends KernelType implements
              * We can't cache the result. Use a generic slot wrapper so
              * we look it up on the type object every time.
              */
-            for (Representation rep : representations()) {
+            for (Representation rep : representations) {
                 sm.setGeneric(rep);
             }
         } else if (result.obj instanceof MethodDescriptor descr) {
@@ -1268,36 +1313,41 @@ public abstract sealed class BaseType extends KernelType implements
              * A method descriptor can give us a direct handle to the
              * implementation for a given self class.
              */
-            updateSpecialMethodCache(sm, result.where, descr);
+            // FIXME probably only valid for slot wrapper descr
+            // ... since it could have any signature.
+            updateSpecialMethodCache(sm, result.where, descr,
+                    representations);
         } else {
             /*
              * It is a method defined in Python or some other object or
              * descriptor. Use a generic slot wrapper to look it up (and
              * bind it) each time.
              */
-            for (Representation rep : representations()) {
+            for (Representation rep : representations) {
                 sm.setGeneric(rep);
             }
         }
     }
 
     /**
-     * Update the cache for each representation of this type, from a
-     * method descriptor.
+     * Update the cache for the specified representations, from a method
+     * descriptor.
      *
      * @param sm the special method
      * @param where the descriptor was found along the MRO
      * @param descr the descriptor defining the special method
+     * @param representations to update
      */
     private void updateSpecialMethodCache(SpecialMethod sm,
-            BaseType where, MethodDescriptor descr) {
+            BaseType where, MethodDescriptor descr,
+            List<Representation> representations) {
         if (where == this) {
             /*
              * We found the definition locally. Method descriptors
              * created for this type explicitly support all its
              * representations.
              */
-            for (Representation rep : representations()) {
+            for (Representation rep : representations) {
                 int index = rep.getIndex();
                 sm.setCache(rep, descr.getHandle(index));
             }
@@ -1309,7 +1359,7 @@ public abstract sealed class BaseType extends KernelType implements
              * Python type where we found the descriptor.
              */
             List<Class<?>> classes = where.selfClasses();
-            for (Representation rep : representations()) {
+            for (Representation rep : representations) {
                 Class<?> c = rep.javaClass();
                 int index = where.getSubclassIndex(c);
                 assert index < classes.size();
@@ -1377,7 +1427,7 @@ public abstract sealed class BaseType extends KernelType implements
         logger.atTrace()
                 .setMessage("ask {} is sub-type of {} from base chain")
                 .addArgument(() -> getName())
-                .addArgument(() -> b.getName());
+                .addArgument(() -> b.getName()).log();
         PyType t = this;
         while (t != b) {
             t = t.getBase();

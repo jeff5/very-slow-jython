@@ -44,9 +44,9 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
         static TypeSpec get() {
             return new TypeSystem.BootstrapSpec("int",
                     MethodHandles.lookup(), PyLong.class)
+                            .binopImpl(PyLongBinops.class)
                             .add(Feature.BASETYPE)
                             .methodImpls(PyLongMethods.class)
-                            // .binops(PyLongBinops.class)
                             .adopt(BigInteger.class, Integer.class)
                             .accept(Boolean.class);
         }

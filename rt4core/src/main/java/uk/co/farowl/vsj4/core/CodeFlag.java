@@ -1,3 +1,5 @@
+// Copyright (c)2026 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
 import java.util.ArrayList;
@@ -95,8 +97,7 @@ public enum CodeFlag {
         /** The code uses fast local local variables, not a map. */
         static final int CO_OPTIMIZED = 0x0001;
         /** A new {@code dict} should be created for local variables. */
-        // NEWLOCALS is never acted on in CPython (but set for
-        // functions)
+        // Never acted on in CPython (but set for functions).
         static final int CO_NEWLOCALS = 0x0002;
         /** The function has a collector for positional arguments. */
         static final int CO_VARARGS = 0x0004;

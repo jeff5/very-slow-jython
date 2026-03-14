@@ -2,13 +2,14 @@ package uk.co.farowl.vsj4c.app;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.runtime.Exposed;
-import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.PyUtil;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
+import uk.co.farowl.vsj4.core.PyType;
+import uk.co.farowl.vsj4.core.PyUtil;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /** An example Python type defined in an application. */
-class MyType {
+class MyType implements WithClass {
 
         private int content;
 
@@ -26,6 +27,9 @@ class MyType {
             return PyUtil.defaultToString(this);
         }
 
-        static final PyType TYPE = PyType.fromSpec(new TypeSpec("MyType",
-                MethodHandles.lookup()));
+        static final PyType TYPE = PyType.fromSpec(
+                new TypeSpec("MyType", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
     }

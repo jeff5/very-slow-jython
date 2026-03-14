@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import uk.co.farowl.vsj4.core.ArgParser.FrameWrapper;
 import uk.co.farowl.vsj4.internal.Util;
 
 /**
@@ -127,7 +128,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
                 "call_method_builtin", "function_def", "function_call"})
         void testExecFile(String name) {
             // A code object to exec
-            CPython311Code code = readCode(name);
+            PyCode code = readCode(name);
             // Invokes the exec method
             ActionHolder c = new ActionHolder("exec-file") {
                 @Override
@@ -261,9 +262,31 @@ class BuiltinsModuleTest extends UnitTestSupport {
             public String name(int index) { return N[index]; }
 
             @Override
-            public EnumSet<VariableTrait> traits(int index) {
-                return EnumSet.noneOf(VariableTrait.class);
-            }
+            public boolean isLocal(int index) { return false; }
+
+            @Override
+            public boolean isCell(int index) { return false; }
+
+            @Override
+            public boolean isFree(int index) { return false; }
+
+            @Override
+            public int argcount() { return 0; }
+
+            @Override
+            public int posonlyargcount() { return 0; }
+
+            @Override
+            public int kwonlyargcount() { return 0; }
+
+            @Override
+            public int positionalCollector() { return -1; }
+
+            @Override
+            public int keywordCollector() { return -1; }
+
+            @Override
+            public int nlocals() { return 0; }
         };
 
         /**
@@ -274,17 +297,15 @@ class BuiltinsModuleTest extends UnitTestSupport {
         public ActionHolder(String name) {
             // No arguments, variables, etc..
             super(FILE, name, name, EnumSet.noneOf(CodeFlag.class), 0,
-                    E, N, 0, 0, 0);
+                    E, N);
         }
 
         @Override
         Layout layout() { return L; }
 
         @Override
-        Function createFunction(Interpreter interpreter, PyDict globals,
-                Object[] defaults, PyDict kwdefaults,
-                Object annotations, PyCell[] closure) {
-            return new Function(interpreter, this, globals);
+        Frame createFrame(PyFunction func, Object locals) {
+            return new Frame(func, locals);
         }
 
         /**
@@ -303,56 +324,12 @@ class BuiltinsModuleTest extends UnitTestSupport {
         abstract Object body() throws Throwable;
 
         /**
-         * Present the code as a parameterless Python function. An
-         * instance is created by
-         * {@link ActionHolder#createFunction(Interpreter, PyDict)}.
-         */
-        static class Function extends PyFunction<ActionHolder> {
-
-            /**
-             * Create a parameterless Python function wrapping the given
-             * action.
-             *
-             * @param interpreter the owning interpreter
-             * @param code the action
-             * @param globals name space context for the function
-             */
-            Function(Interpreter interpreter, ActionHolder code,
-                    PyDict globals) {
-                super(interpreter, code, globals, null, null, null,
-                        null);
-            }
-
-            @Override
-            Frame createFrame(Object locals) {
-                return new Frame(this, locals);
-            }
-
-            @Override
-            void setDefaults(PyTuple defaults) {}
-
-            @Override
-            void setKwdefaults(PyDict kwdefaults) {}
-
-            @Override
-            Object __call__(Object[] args, String[] names)
-                    throws Throwable {
-                // There is a higher frame
-                assert ThreadState.get().frame != null;
-                // We're only expecting one (if not faulty test).
-                assert ThreadState.get().frame.back == null;
-                // This frame is loose
-                Frame frame = createFrame(null);
-                // No args to parse
-                return frame.eval();
-            }
-        }
-
-        /**
          * A Python frame representing the running state of the code. An
-         * instance is created by {@link Function#createFrame(Object)}.
+         * instance is created by a call to
+         * {@link Interpreter#eval(PyCode, PyDict, Object)} at the end
+         * of {@link TestFunctions#testExec()}.
          */
-        static class Frame extends PyFrame<ActionHolder> {
+        class Frame extends PyFrame<ActionHolder> {
             /**
              * Create a Python frame representing the running state of
              * the code in the function.
@@ -360,10 +337,16 @@ class BuiltinsModuleTest extends UnitTestSupport {
              * @param func to execute in {@code eval()}
              * @param locals local variables as a {@code dict}
              */
-            Frame(Function func, Object locals) {
+            Frame(PyFunction func, Object locals) {
                 super(func);
                 this.locals = locals;
             }
+
+            @Override
+            ActionHolder getCode() { return ActionHolder.this; }
+
+            @Override
+            FrameWrapper getWrapper() { return null; }
 
             @Override
             Object eval() {
@@ -371,7 +354,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
                 ThreadState tstate = ThreadState.get();
                 tstate.push(this);
                 try {
-                    return func.code.body();
+                    return body();
                 } catch (Throwable t) {
                     throw Util.asUnchecked(t, "during eval()");
                 } finally {

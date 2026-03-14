@@ -1,32 +1,32 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.core.ArgParser.FrameWrapper;
 import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A {@code PyFrame} is the context for the execution of code. Different
- * concrete sub-classes of {@code PyFrame} exist to execute different
- * compiled representations of Python code and classes of function. For
- * example, there is one for CPython 3.11 byte code and (we expect)
+ * concrete sub-classes of {@code PyFrame} and {@link PyCode} exist to
+ * execute different compiled representations of Python code and classes
+ * of function. For example, there is one for CPython 3.11 byte code and
  * another for Java byte code compiled from Python. The type of code
- * object supported is the parameter {@code C} to the class, and the
- * type of function is parameter {@code F}, which must be compatible
- * with {@code C}.
+ * object supported is the parameter {@code C} to the class.
  * <p>
  * In order that argument processing may be uniform irrespective of
- * concrete type, a {@code PyFrame} presents an abstraction that has
- * arguments laid out in an array. For example, the function
+ * concrete type, a {@code PyFrame} presents an abstraction that has the
+ * parameters laid out in an array. For example, given the function
  * definition:<pre>
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
- *     v, w, x = b, c, d, e
+ *     u, v, w, x = b, c, d, e
  *     return u
- * </pre> the layout of the local variables in a frame would be as below
+ * </pre> the layout of the variables in a frame could be this:
  * <table class="framed-layout" style="border: none;">
  * <caption>A Python {@code frame}</caption>
  * <tr>
@@ -60,28 +60,53 @@ import uk.co.farowl.vsj4.types.WithClass;
  * <td colspan=13></td>
  * </tr>
  * <tr>
- * <td class="label">function</td>
- * <td colspan=2></td>
+ * <td class="label" rowspan=2>function</td>
+ * <td colspan=2 style="border-style: none;"></td>
  * <td colspan=4>defaults</td>
- * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * <tr>
+ * <td colspan=4 style="border-style: none;"></td>
+ * <td colspan=5 style="border-style: dashed;">kwdefaults</td>
  * </tr>
  * </table>
  * <p>
- * In the last row of the table, the properties are supplied by the
- * function object during each call. {@code defaults} apply in the
- * position show, in order, while {@code kwdefaults} (in a map) apply to
- * keywords wherever the name matches. The names in the frame are those
- * in the {@link PyCode#co_varnames} field of the associated code
- * object.
+ * The last two rows of the table show where default arguments are
+ * supplied by the function object during each call. {@code defaults}
+ * apply in the position shown, in order, while {@code kwdefaults} (in a
+ * map) apply to keywords wherever the name matches a keyword parameter
+ * or a positional (but not positional-only) parameter. The names in the
+ * top row are variables to which the frame gives (logical) spaces.
+ * Variables in the frame have different designations according to their
+ * function, representation and origin. An important distinction is
+ * between those that store a reference to their value directly, and
+ * those that reference a {@link PyCell cell} shared with another frame.
  * <p>
- * The frame presents an abstraction of an array of named local
- * variables, and two more of cell and free variables, while concrete
- * subclasses are free to implement these in whatever manner they
- * choose.
+ * We caution the reader that while Python has gradually clarified the
+ * terms it uses to refer to variables in a frame, the names of the
+ * attributes of {@code frame} and {@code code} objects were chosen
+ * incrementally, long before that and are often misleading. Evidently
+ * there are more than {@code code.co_argcount} arguments (meaning
+ * parameters, really), {@code frame.f_locals} names more than just the
+ * "local variables", and not all the variables are named in
+ * {@code co_varnames}.
  *
- * @param <C> The type of code that this frame executes
+ * @implNote In CPython, the equivalent {@code PyFrameObject}
+ *     ({@code struct _frame}) is a Python object that is largely a
+ *     proxy for a private {@code _PyInterpreterFrame}, a non-Python
+ *     object that may exist independent of any {@code PyFrameObject},
+ *     and is created first. This supports optimisations in CPython, by
+ *     fast allocation of the interpreter frame in the current
+ *     {@code PyThreadState}, but we haven't found a reason to copy this
+ *     pattern in Java.
+ *
+ * @implNote A Python frame is not callable, but we implement
+ *     {@link FastCall} to enable custom frame subclasses to provide a
+ *     fast path in {@code function.__call__}.
+ *
+ * @param <C> The type of {@code PyCode} that this frame executes
  */
-public abstract class PyFrame<C extends PyCode> implements WithClass {
+public abstract class PyFrame<C extends PyCode>
+        implements WithClass, FastCall {
 
     /** The Python type {@code frame}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -91,15 +116,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     PyFrame<? extends PyCode> back;
 
     /** Function of which this is a frame. */
-    final PyFunction<? extends C> func;
-
-    /**
-     * Code this frame is to execute, exposed as immutable
-     * {@code f_code}. We have our own final copy because it is possible
-     * to change the code object that defines {@link #func} but the
-     * frame should continue to reference the code that created it.
-     */
-    final C code;
+    final PyFunction func;
 
     /**
      * Local context (name space) of execution. (Assign if needed.) This
@@ -121,22 +138,22 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
      *
      * @param func defining the code and globals
      */
-    protected PyFrame(PyFunction<? extends C> func) {
-        this.func = func;
-        this.code = func.code;
-    }
+    protected PyFrame(PyFunction func) { this.func = func; }
 
     @Override
     public PyType getType() { return TYPE; }
 
     /**
      * Get the code object this frame is executing, exposed as read-only
-     * {@code f_code}.
+     * {@code f_code}. A {@code frame} must have its own final copy
+     * because it is possible to change the code object that defines
+     * {@link #func} but the frame should continue to reference the code
+     * that created it.
      *
      * @return the code object this frame is executing.
      */
     @Exposed.Getter("f_code")
-    C getCode() { return code; }
+    abstract C getCode();
 
     /**
      * Get the interpreter that defines the import context when
@@ -172,9 +189,9 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     PyDict getGlobals() { return func.globals; }
 
     /**
-     * Get the local variables (name space) against which this frame is
-     * executing, exposed as read-only (but mutable) attribute
-     * {@code f_locals}. Not {@code null}.
+     * Get the local <i>and closure</i> variables (name space) against
+     * which this frame is executing, exposed as read-only (but mutable)
+     * attribute {@code f_locals}. Not {@code null}.
      *
      * @return the local name space.
      */
@@ -183,6 +200,23 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
         fastToLocals();
         return locals;
     }
+
+    /**
+     * Return a suitable mechanism to set the parameter local variables
+     * with values from the arguments and defaults held in the
+     * {@code function} object. This will be called during the Python
+     * function call that brings this frame into existence, between the
+     * initial construction and the call to {@link #eval()}.
+     * <p>
+     * The work of assigning values is mostly done by an
+     * {@link ArgParser}, but it needs an abstracted mechanism, the
+     * {@link FrameWrapper}, that allows it actually to set variables
+     * independent of the {@code PyFrame} implementation. This method
+     * must be implemented by each specialisation of {@code PyFrame}.
+     *
+     * @return a wrapper with access to initialise arguments
+     */
+    abstract FrameWrapper getWrapper();
 
     // slot methods --------------------------------------------------
 
@@ -197,6 +231,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     @Override
     // Compare CPython frame_repr in frameobject.c
     public String toString() {
+        PyCode code = getCode();
         int lineno = code.firstlineno;
         if (lineno == 0) { lineno = -1; }
         String file = code.filename, q = "'";
@@ -214,7 +249,7 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
      *
      * @return as a Java {@code Map}
      */
-    protected Map<Object, Object> localsMapOrNull() {
+    Map<Object, Object> localsMapOrNull() {
         if (locals == null) {
             return null;
         } else {
@@ -231,12 +266,30 @@ public abstract class PyFrame<C extends PyCode> implements WithClass {
     // Compare CPython PyEval_EvalFrameEx in ceval.c
     abstract Object eval();
 
+    @Override
+    public Object call(Object[] args, String[] names)
+            throws ArgumentError, Throwable {
+        // Fill the local variables that are arguments
+        ArgParser.FrameWrapper wrapper = getWrapper();
+        func.getArgParser().parseToFrame(wrapper, args, names);
+        // Run the frame
+        return eval();
+    }
+
+    @Override
+    public PyBaseException typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        // We can use the default message format, adding only the name.
+        return FastCall.typeError(getCode().name, ae, args, names);
+    }
+
     /**
-     * Convert (or update) a dictionary representation of the local
-     * variables (including cell variables) held in
-     * {@link PyFrame#locals}. Each type of {@code frame} is free to use
-     * its own internal representation of its local variables, but each
-     * must provide this conversion.
+     * Create (or update) a dictionary representation of the values of
+     * the local variables (including the values of cell variables) to
+     * be held in {@link PyFrame#locals}. Each type of {@code frame} is
+     * free to use its own internal representation of its local
+     * variables, but each must provide this method to set
+     * {@link #locals} from them.
      */
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c

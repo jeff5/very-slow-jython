@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -238,30 +238,25 @@ public enum Comparison {
         Representation wRep = TypeSystem.registry.get(w.getClass());
         PyType wType = wRep.pythonType(w);
         SpecialMethod swappedSlot = null;
+        Object r;
 
         // Try the swapped operation first if w is a sub-type of v
 
         if (vType != wType && wType.isSubTypeOf(vType)) {
             swappedSlot = swapped().slot;
-            try {
-                Object r = swappedSlot.handle(wRep).invokeExact(w, v);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
+            r = swappedSlot.handle(wRep).invokeExact(w, v);
+            if (r != Py.NotImplemented) { return r; }
         }
 
         // Try the forward operation
-        try {
-            Object r = slot.handle(vRep).invokeExact(v, w);
-            if (r != Py.NotImplemented) { return r; }
-        } catch (EmptyException e) {}
+        r = slot.handle(vRep).invokeExact(v, w);
+        if (r != Py.NotImplemented) { return r; }
 
         // Try the swapped operation if we haven't already
         if (swappedSlot == null) {
             swappedSlot = swapped().slot;
-            try {
-                Object r = swappedSlot.handle(wRep).invokeExact(w, v);
-                if (r != Py.NotImplemented) { return r; }
-            } catch (EmptyException e) {}
+            r = swappedSlot.handle(wRep).invokeExact(w, v);
+            if (r != Py.NotImplemented) { return r; }
         }
 
         // Neither object implements this. Base == and != on identity.

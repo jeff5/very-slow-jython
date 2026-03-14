@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -43,9 +43,9 @@ public class PyFloat implements WithClass {
         static TypeSpec get() {
             return new TypeSystem.BootstrapSpec("float",
                     MethodHandles.lookup(), PyFloat.class)
+                            .binopImpl(PyFloatBinops.class)
                             .add(Feature.BASETYPE)
                             .methodImpls(PyFloatMethods.class)
-                            // .binops(PyFloatBinops.class)
                             .adopt(Double.class);
         }
     }
@@ -140,6 +140,9 @@ public class PyFloat implements WithClass {
             throw Abstract.requiredTypeError("a real number", o);
     }
 
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
     // Constructor from Python ----------------------------------------
 
     /**
@@ -178,7 +181,6 @@ public class PyFloat implements WithClass {
 
     // Special methods -----------------------------------------------
 
-    // TODO: implement __format__ and (revised) stringlib
     @SuppressWarnings("unused")
     private static String __repr__(Object self) {
         assert TYPE.check(self);

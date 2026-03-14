@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -6,7 +6,6 @@ import java.math.BigInteger;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
@@ -170,7 +169,6 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         }
 
         @Nested
-        @Disabled("Awaits float.__repr__ and stringlib")
         @DisplayName("of 'float' objects")
         class OfFloat extends UnaryTest<String, Object> {
 

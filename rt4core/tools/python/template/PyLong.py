@@ -1,6 +1,6 @@
 # PyLong.py: A generator for Java files that define the Python int
 
-# Copyright (c)2025 Jython Developers.
+# Copyright (c)2026 Jython Developers.
 # Licensed to PSF under a contributor agreement.
 
 # This generator writes PyLongMethods.java and PyLongBinops.java .
@@ -41,7 +41,7 @@ BIG_INTEGER_CLASS = IntTypeInfo('BigInteger', WorkingType.BIG,
                     itself)
 INTEGER_CLASS = IntTypeInfo('Integer', WorkingType.INT,
                     lambda x: f'BigInteger.valueOf({x})',
-                    lambda x: f'((long) {x})',
+                    lambda x: f'({x}.longValue())',
                     itself)
 BOOLEAN_CLASS = IntTypeInfo('Boolean', WorkingType.INT,
                     lambda x: f'({x} ? ONE : ZERO)',
@@ -251,18 +251,26 @@ def _binary_method_obj(op:BinaryOpInfo,
 
 class PyLongGenerator(ImplementationGenerator):
 
-    # The canonical and adopted implementations in PyInteger.java,
-    # as there are no further accepted self-classes.
+    # Accepted classes (classes that will be accepted as self) are the
+    # representations of 'int' plus Boolean.
     ACCEPTED_CLASSES = [
         PY_LONG_CLASS,
         BIG_INTEGER_CLASS,
         INTEGER_CLASS,
         BOOLEAN_CLASS,
     ]
-    OPERAND_CLASSES = ACCEPTED_CLASSES + [
-    ]
+    # No additional operand classes have been identified (but we'll
+    # leave a hook).
+    OPERAND_CLASSES = []
 
-    # Operations have to provide versions in which long and
+    # **************************************************************
+    # If the number of accepted or operand classes changes, or the
+    # number of entries in BINARY_OPS with class specific
+    # implementations (i.e. ending in True), we must adjust the
+    # corresponding table sizing constants in BinopTable.java.
+    # **************************************************************
+
+    # Operations have to provide versions in which int, long and
     # BigInteger are the common type to which arguments are converted.
 
     UNARY_OPS = [
@@ -288,6 +296,10 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x: f'{x}.negate()',
             lambda x: f'-{x}',
             lambda x: f'-{x}'),
+        UnaryOpInfo('__pos__', OBJECT_CLASS, WorkingType.INT,
+            lambda x: f'{x}',
+            lambda x: f'{x}',
+            lambda x: f'{x}'),
         UnaryOpInfo('__float__', OBJECT_CLASS, WorkingType.INT,
             lambda x: f'PyLong.convertToDouble({x})',
             lambda x: f'((double) {x})',
@@ -317,8 +329,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'{y}.add({x})',
             lambda x, y: f'{y} + {x}', 
-            lambda x, y: f'{y} + {x}',
-            True),
+            lambda x, y: f'{y} + {x}'),
         BinaryOpInfo('__sub__', OBJECT_CLASS, WorkingType.LONG,
             binary_intmethod,
             lambda x, y: f'{x}.subtract({y})',
@@ -329,8 +340,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'{y}.subtract({x})',
             lambda x, y: f'{y} - {x}', 
-            lambda x, y: f'{y} - {x}',
-            True),
+            lambda x, y: f'{y} - {x}'),
         BinaryOpInfo('__mul__', OBJECT_CLASS, WorkingType.LONG,
             binary_intmethod,
             lambda x, y: f'{x}.multiply({y})',
@@ -341,8 +351,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'{y}.multiply({x})',
             lambda x, y: f'{y} * {x}', 
-            lambda x, y: f'{y} * {x}',
-            True),
+            lambda x, y: f'{y} * {x}'),
         BinaryOpInfo('__floordiv__', OBJECT_CLASS, WorkingType.INT,
             binary_intmethod,
             lambda x, y: f'divide({x}, {y})',
@@ -353,8 +362,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'divide({y}, {x})',
             lambda x, y: f'divide({y}, {x})',
-            lambda x, y: f'divide({y}, {x})',
-            True),
+            lambda x, y: f'divide({y}, {x})'),
         BinaryOpInfo('__mod__', OBJECT_CLASS, WorkingType.INT,
             binary_intmethod,
             lambda x, y: f'modulo({x}, {y})',
@@ -365,8 +373,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'modulo({y}, {x})',
             lambda x, y: f'modulo({y}, {x})',
-            lambda x, y: f'modulo({y}, {x})',
-            True),
+            lambda x, y: f'modulo({y}, {x})'),
 
         BinaryOpInfo('__divmod__', OBJECT_CLASS, WorkingType.INT,
             binary_method,
@@ -378,8 +385,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_method,
             lambda x, y: f'divmod({y}, {x})',
             lambda x, y: f'divmod({y}, {x})',
-            lambda x, y: f'divmod({y}, {x})',
-            True),
+            lambda x, y: f'divmod({y}, {x})'),
 
         BinaryOpInfo('__truediv__', OBJECT_CLASS, WorkingType.INT,
             binary_method,
@@ -391,8 +397,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_method,
             lambda x, y: f'trueDivide({y}, {x})',
             lambda x, y: f'trueDivide({y}, {x})',
-            lambda x, y: f'(double){y} / (double){x}',
-            True),
+            lambda x, y: f'(double){y} / (double){x}'),
 
         # These produce very poor code, because the shift is promoted
         # needlessly to a BigInteger. The int << shift is probably
@@ -407,8 +412,7 @@ class PyLongGenerator(ImplementationGenerator):
         #     binary_intmethod,
         #     lambda x, y: f'{y}.shiftLeft(toShift({x}))',
         #     lambda x, y: f'{y} << toShift({x})', 
-        #     lambda x, y: f'{y} << toShift({x})',
-        #     True),
+        #     lambda x, y: f'{y} << toShift({x})'),
         # BinaryOpInfo('__rshift__', OBJECT_CLASS, WorkingType.BIG,
         #     binary_intmethod,
         #     lambda x, y: f'{x}.shiftRight(toShift({y}))',
@@ -419,8 +423,7 @@ class PyLongGenerator(ImplementationGenerator):
         #     binary_intmethod,
         #     lambda x, y: f'{y}.shiftRight(toShift({x}))',
         #     lambda x, y: f'{y} >> toShift({x})', 
-        #     lambda x, y: f'{y} >> toShift({x})',
-        #     True),
+        #     lambda x, y: f'{y} >> toShift({x})'),
 
         BinaryOpInfo('__and__', OBJECT_CLASS, WorkingType.INT,
             binary_intmethod,
@@ -432,8 +435,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'{y}.and({x})',
             lambda x, y: f'{y} & {x}', 
-            lambda x, y: f'{y} & {x}',
-            True),
+            lambda x, y: f'{y} & {x}'),
         BinaryOpInfo('__or__', OBJECT_CLASS, WorkingType.INT,
             binary_intmethod,
             lambda x, y: f'{x}.or({y})',
@@ -455,8 +457,7 @@ class PyLongGenerator(ImplementationGenerator):
             binary_intmethod,
             lambda x, y: f'{y}.xor({x})',
             lambda x, y: f'{y} ^ {x}', 
-            lambda x, y: f'{y} ^ {x}',
-            True),
+            lambda x, y: f'{y} ^ {x}'),
 
         BinaryOpInfo('__lt__', OBJECT_CLASS, WorkingType.INT,
             binary_method,
@@ -511,9 +512,12 @@ class PyLongGenerator(ImplementationGenerator):
         # Emit the binary operations and comparisons
         for op in self.BINARY_OPS:
             if op.class_specific:
-                self.emit_heading(e, op)
+                ALL = self.ACCEPTED_CLASSES + self.OPERAND_CLASSES
                 for vt in self.ACCEPTED_CLASSES:
-                    for wt in self.OPERAND_CLASSES:
+                    for wt in ALL:
+                        self.special_binary(e, op, vt, wt)
+                for vt in self.OPERAND_CLASSES:
+                    for wt in self.ACCEPTED_CLASSES:
                         self.special_binary(e, op, vt, wt)
 
     def special_unary(self, e, op:UnaryOpInfo, t):
@@ -531,9 +535,7 @@ class PyLongGenerator(ImplementationGenerator):
     #        return v + toInt(w);
     #    }
     def special_binary(self, e, op:BinaryOpInfo, t1, t2):
-        reflected = op.name.startswith('__r') and \
-            op.name not in ("__rshift__", "__round__", "__repr__")
-        n1, n2 = 'vw' if not reflected else 'wv'
+        n1, n2 = 'v', 'w'
         self.emit_binary_javadoc(e, op, n1, n2)
         e.emit('static ').emit(op.return_type.name).emit(' ')
         e.emit(op.name).emit('(')

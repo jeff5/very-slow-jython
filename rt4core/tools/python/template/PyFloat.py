@@ -1,6 +1,6 @@
 # PyFloat.py: A generator for Java files that define the Python float
 
-# Copyright (c)2025 Jython Developers.
+# Copyright (c)2026 Jython Developers.
 # Licensed to PSF under a contributor agreement.
 
 # This generator writes PyFloatMethods.java and PyFloatBinops.java .
@@ -192,9 +192,9 @@ class PyFloatGenerator(ImplementationGenerator):
     # The canonical and adopted implementations in PyFloat.java.
     ACCEPTED_CLASSES = [PY_FLOAT_CLASS, DOUBLE_CLASS]
 
-    # These classes may occur as the second operand in binary
-    # operations. Order is not significant.
-    OPERAND_CLASSES = ACCEPTED_CLASSES + [
+    # These classes may also occur as the first or second operand in
+    # a binary operation involving one of the ACCEPTED_CLASSES.
+    OPERAND_CLASSES = [
         # XXX Consider *not* specialising ...
         # Although PyLong and BigInteger are accepted operands, we
         # decline to specialise, since the implementation would be
@@ -204,6 +204,13 @@ class PyFloatGenerator(ImplementationGenerator):
         INTEGER_CLASS,
         BOOLEAN_CLASS,
     ]
+
+    # **************************************************************
+    # If the number of accepted or operand classes changes, or the
+    # number of entries in BINARY_OPS with class specific
+    # implementations (i.e. ending in True), we must adjust the
+    # corresponding table sizing constants in BinopTable.java.
+    # **************************************************************
 
     # Operations may simply be codified as a return expression, since
     # all operand types may be converted to primitive double.
@@ -233,24 +240,21 @@ class PyFloatGenerator(ImplementationGenerator):
             True),
         BinaryOpInfo('__radd__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'{y} + {x}',
-            True),
+            lambda x, y: f'{y} + {x}'),
         BinaryOpInfo('__sub__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
             lambda x, y: f'{x} - {y}',
             True),
         BinaryOpInfo('__rsub__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'{y} - {x}',
-            True),
+            lambda x, y: f'{y} - {x}'),
         BinaryOpInfo('__mul__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
             lambda x, y: f'{x} * {y}',
             True),
         BinaryOpInfo('__rmul__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'{y} * {x}',
-            True),
+            lambda x, y: f'{y} * {x}'),
 
         BinaryOpInfo('__truediv__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
@@ -258,8 +262,7 @@ class PyFloatGenerator(ImplementationGenerator):
             True),
         BinaryOpInfo('__rtruediv__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'{y} / nonzero({x})',
-            True),
+            lambda x, y: f'{y} / nonzero({x})'),
 
         BinaryOpInfo('__floordiv__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
@@ -267,16 +270,14 @@ class PyFloatGenerator(ImplementationGenerator):
             False),
         BinaryOpInfo('__rfloordiv__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'floordiv({y}, {x})',
-            False),
+            lambda x, y: f'floordiv({y}, {x})'),
         BinaryOpInfo('__mod__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
             lambda x, y: f'mod({x}, {y})',
             False),
         BinaryOpInfo('__rmod__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_floatmethod,
-            lambda x, y: f'mod({y}, {x})',
-            False),
+            lambda x, y: f'mod({y}, {x})'),
 
         BinaryOpInfo('__divmod__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_method,
@@ -284,8 +285,7 @@ class PyFloatGenerator(ImplementationGenerator):
             False),
         BinaryOpInfo('__rdivmod__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_method,
-            lambda x, y: f'divmod({y}, {x})',
-            False),
+            lambda x, y: f'divmod({y}, {x})'),
 
         BinaryOpInfo('__lt__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_method,
@@ -329,8 +329,12 @@ class PyFloatGenerator(ImplementationGenerator):
         for op in self.BINARY_OPS:
             if op.class_specific:
                 self.emit_heading(e, op)
+                ALL = self.ACCEPTED_CLASSES + self.OPERAND_CLASSES
                 for vt in self.ACCEPTED_CLASSES:
-                    for wt in self.OPERAND_CLASSES:
+                    for wt in ALL:
+                        self.special_binary(e, op, vt, wt)
+                for vt in self.OPERAND_CLASSES:
+                    for wt in self.ACCEPTED_CLASSES:
                         self.special_binary(e, op, vt, wt)
 
     def special_unary(self, e, op:UnaryOpInfo, t):
@@ -348,9 +352,7 @@ class PyFloatGenerator(ImplementationGenerator):
     #        return v.doubleValue() + w.doubleValue();
     #    }
     def special_binary(self, e, op:BinaryOpInfo, t1, t2):
-        reflected = op.name.startswith('__r') and \
-            op.name not in ("__rshift__", "__round__", "__repr__")
-        n1, n2 = 'vw' if not reflected else 'wv'
+        n1, n2 = 'v', 'w'
         self.emit_binary_javadoc(e, op, n1, n2)
         e.emit('static ').emit(op.return_type.name).emit(' ')
         e.emit(op.name).emit('(')

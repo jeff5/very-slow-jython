@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -318,7 +318,7 @@ class CPython311CodeTest extends UnitTestSupport {
             "attr_access_builtin", "call_method_builtin",
             "builtins_module"})
     void executeSimple(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         Object r = interp.eval(code, globals);
@@ -337,7 +337,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @ValueSource(strings = {"simple_if", "multi_if", "simple_loop",
             "tuple_dot_product", "list_dot_product", "for_loop"})
     void executeBranchAndLoop(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         Object r = interp.eval(code, globals);
@@ -357,7 +357,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @ValueSource(strings = {"function_def", "function_call",
             "function_closure", "function_locals"})
     void executeComplex(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         Object r = interp.eval(code, globals);
@@ -379,7 +379,7 @@ class CPython311CodeTest extends UnitTestSupport {
             "call_method_builtin", "builtins_module",
             "function_locals"})
     void executeCustomLocals(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         // locals is a custom type with __setitem__ and __getitem__
@@ -405,7 +405,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"builtins_module", "function_locals"})
     void executeCustomBuiltins(String name) {
-        CPython311Code code = readCode(name);
+        PyCode code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
         // builtins is a custom type with __setitem__ and __getitem__,
@@ -417,8 +417,9 @@ class CPython311CodeTest extends UnitTestSupport {
         }
         // Add custom builtins to globals for createFunction to find
         globals.put("__builtins__", builtins);
-        PyFunction<?> fn = code.createFunction(interp, globals);
-        PyFrame<?> f = fn.createFrame(globals);
+        // Nominal no-args function wrapping the module code.
+        PyFunction fn = new PyFunction(interp, code, globals);
+        PyFrame<?> f = fn.createFrame(/* locals= */ globals);
         f.eval();
         assertExpectedVariables(readResultDict(name), globals);
     }
@@ -466,12 +467,12 @@ class CPython311CodeTest extends UnitTestSupport {
      * ({@link #PYC_DIR}}, being provided only the base name of the
      * program. So for example, {@code "unary_op"} will retrieve a code
      * object from {@code unary_op.cpython-311.pyc} in
-     * {@code generated/sources/pythonExample/test/vsj3/evo1/__pycache__}.
+     * {@code generated/sources/pythonExample/test/vsj4/__pycache__}.
      *
      * @param progName base name of program
      * @return {@code code} object read in
      */
-    static CPython311Code readCode(String progName) {
+    static PyCode readCode(String progName) {
         String name = progName + "." + CPYTHON_VER + "." + PYC_SUFFIX;
         File f = PYC_DIR.resolve(name).toFile();
         try (
@@ -492,7 +493,7 @@ class CPython311CodeTest extends UnitTestSupport {
             // Next should be a code object
             if (good) {
                 Object o = reader.readObject();
-                if (o instanceof PyCode) { return (CPython311Code)o; }
+                if (o instanceof PyCode c) { return c; }
             }
 
             // Didn't return a code object

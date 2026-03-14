@@ -1,10 +1,11 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,10 +61,10 @@ import uk.co.farowl.vsj4.types.Exposed;
  * <p>
  * When parsed to an array, the layout of the argument values, in
  * relation to fields of the parser will be as follows.
- * <table class="lined">
+ * <table class="framed-layout" style="border: none;">
  * <caption>A Python {@code frame}</caption>
  * <tr>
- * <td class="row-label">names</td>
+ * <td class="label">names</td>
  * <td>a</td>
  * <td>b</td>
  * <td>c</td>
@@ -77,15 +78,18 @@ import uk.co.farowl.vsj4.types.Exposed;
  * <td>kk</td>
  * </tr>
  * <tr>
- * <td class="row-label" rowspan=3>layout</td>
+ * <td class="label" rowspan=3>layout</td>
  * <td colspan=4>posOnly</td>
  * <td colspan=2></td>
  * <td colspan=3>kwOnly</td>
  * </tr>
  * <tr>
- * <td colspan=2></td>
+ * <td colspan=2 style="border-style: none;"></td>
  * <td colspan=4>defaults</td>
- * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * <tr>
+ * <td colspan=4 style="border-style: none;"></td>
+ * <td colspan=5 style="border-style: dashed;">kwdefaults</td>
  * </tr>
  * </table>
  * <p>
@@ -134,7 +138,8 @@ class ArgParser {
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
      * <p>
      * It is often is longer since it suits us to re-use an array that
-     * names all the local variables of a frame.
+     * names all the local variables of a frame. See
+     * {@link #parameters}.
      */
     /*
      * Here and elsewhere we use the same field names as the CPython
@@ -144,6 +149,14 @@ class ArgParser {
      * by an argument given by position.
      */
     final String[] argnames;
+
+    /**
+     * Names of parameters that could be satisfied by position or
+     * keyword, including the collector parameters as an unmodifiable
+     * list. The size is: {@code argcount + kwonlyargcount
+                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
+     */
+    final List<String> parameters;
 
     /**
      * The number of positional or keyword parameters, excluding the
@@ -297,8 +310,10 @@ class ArgParser {
         this.varArgsIndex = varargs ? N++ : -1;
         this.varKeywordsIndex = varkw ? N++ : -1;
 
-        assert argnames.length >= argcount + kwonlyargcount
-                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
+        // N is the total number of parameters inc varargs, varkwargs
+        assert argnames.length >= N;
+        this.parameters = Collections.unmodifiableList(
+                Arrays.asList(argnames).subList(0, N));
     }
 
     /**
@@ -731,15 +746,37 @@ class ArgParser {
         }
 
         /**
-         * Get the local variable named by {@code argnames[i]}
+         * Get the local variable with logical index {@code i}, named by
+         * {@code argnames[i]} if it is a parameter. The valid range of
+         * the index {@code i} is at least 0 to
+         * {@code argnames.length-1}.
+         * <p>
+         * A frame may implement this API to give access to <i>all
+         * of</i> its local variables through indices matching the order
+         * of the {@code localnames} of the associated code object.
+         * (Local variables do not have to be implemented as an array.)
          *
-         * @param i index of variable name in {@code argnames}
-         * @return value of variable named {@code argnames[i]}
+         * @implSpec Each implementation of {@code FrameWrapper} must
+         *     define (and document) how {@link #getLocal(int)} and
+         *     {@link #setLocal(int, Object)} behave when when the index
+         *     maps to a cell variable. {@code getLocal} may get the
+         *     contents of the cell, or get the cell object itself.
+         *
+         * @param i index of the variable in the frame
+         * @return local variable/cell with index {@code i}
          */
         abstract Object getLocal(int i);
 
         /**
-         * Set the local variable named by {@code argnames[i]}
+         * Set the local variable with logical index {@code i}. See
+         * {@link #getLocal(int)} for details.
+         *
+         * @implSpec Each implementation of {@code FrameWrapper} must
+         *     define (and document) how {@link #getLocal(int)} and
+         *     {@link #setLocal(int, Object)} behave when when the index
+         *     maps to a cell variable. {@code setLocal} may set the
+         *     contents of the cell, or store the object {@code v}
+         *     cell-nature a client problem.
          *
          * @param i index of variable name in {@code argnames}
          * @param v to assign to variable named {@code argnames[i]}
@@ -1276,9 +1313,27 @@ class ArgParser {
          */
         ArrayFrameWrapper(Object[] vars) { this(vars, 0); }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * If local variable {@code i} is a cell variable, the
+         * {@link PyCell} itself is returned. This is the correct
+         * semantic when a closure is being built.
+         */
         @Override
         Object getLocal(int i) { return vars[start + i]; }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * If local variable {@code i} is a cell variable, the
+         * {@link PyCell} is replaced with {@code v}, whether that is a
+         * cell or not. This is the correct choice when initialising a
+         * CPython frame because the byte code begins by replacing the
+         * initial value of each cell variable with a cell that contains
+         * them. If the other semantic is required, use
+         * {@code getLocal(i).set(v)}.
+         */
         @Override
         void setLocal(int i, Object v) { vars[start + i] = v; }
 

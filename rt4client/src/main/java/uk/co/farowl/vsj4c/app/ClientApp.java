@@ -2,11 +2,11 @@ package uk.co.farowl.vsj4c.app;
 
 import java.util.List;
 
-import uk.co.farowl.vsj4.runtime.Abstract;
-import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.PyNumber;
-import uk.co.farowl.vsj4.runtime.PyObject;
-import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.core.Abstract;
+import uk.co.farowl.vsj4.core.Callables;
+import uk.co.farowl.vsj4.core.PyNumber;
+import uk.co.farowl.vsj4.core.PyObject;
+import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4c.ext.Extension;
 
 public class ClientApp {

@@ -1,4 +1,4 @@
-// Copyright (c)2025 Jython Developers.
+// Copyright (c)2026 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -623,7 +623,13 @@ class SlotWrapperTestBase {
         Object makeHandleCall(Object s, Object o) throws Throwable {
             Representation rep = Abstract.representation(s);
             MethodHandle mh = sm.handle(rep);
-            return mh.invokeExact(s, o);
+            if (!sm.isreflected) {
+                // Normal case (self, other)
+                return mh.invokeExact(s, o);
+            } else {
+                // Permute the arguments to be (other, self).
+                return mh.invokeExact(o, s);
+            }
         }
     }
 }
