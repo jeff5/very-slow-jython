@@ -268,7 +268,7 @@ public abstract class PyFrame<C extends PyCode>
 
     @Override
     public Object call(Object[] args, String[] names)
-            throws ArgumentError, Throwable {
+            throws PyBaseException {
         // Fill the local variables that are arguments
         ArgParser.FrameWrapper wrapper = getWrapper();
         func.getArgParser().parseToFrame(wrapper, args, names);

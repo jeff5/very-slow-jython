@@ -593,8 +593,11 @@ class ArgParser {
      * @param n number of positional <b>and keyword</b> arguments
      * @param names of keyword arguments or {@code null}
      * @return array of parsed arguments
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the arguments do not match the signature.
      */
-    Object[] parse(Object[] s, int p, int n, String[] names) {
+    Object[] parse(Object[] s, int p, int n, String[] names)
+            throws PyBaseException {
         Object[] a = new Object[argnames.length];
         FrameWrapper w = new ArrayFrameWrapper(a);
         parseToFrame(w, s, p, n, names);
@@ -608,8 +611,10 @@ class ArgParser {
      * @param args positional arguments
      * @param kwargs keyword arguments
      * @return array of parsed arguments
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the arguments do not match the signature.
      */
-    Object[] parse(PyTuple args, PyDict kwargs) {
+    Object[] parse(PyTuple args, PyDict kwargs) throws PyBaseException {
         Object[] a = new Object[argnames.length];
         FrameWrapper w = new ArrayFrameWrapper(a);
         parseToFrame(w, args, kwargs);
@@ -686,7 +691,7 @@ class ArgParser {
      * number of parameters.
      */
     private void checkShape() {
-        // XXX This may be too fussy, given that Python function is not
+        // XXX This may be too fussy, given the Python function is not
         final int N = argcount;
         final int L = defaults == null ? 0 : defaults.length;
         final int K = kwonlyargcount;
@@ -1081,7 +1086,7 @@ class ArgParser {
          * argument processing.
          *
          * @param posGiven Number of positional arguments given.
-         * @return to throw.
+         * @return ({@link PyExc#TypeError TypeError}) to throw.
          */
         // Compare CPython ceval.c::too_many_positional().
         PyBaseException tooManyPositional(int posGiven) {
@@ -1148,7 +1153,8 @@ class ArgParser {
          * @param <K> type of element in keyword collection
          * @param kw the unexpected keyword encountered in the call
          * @param kwnames all the keywords used in the call
-         * @return PyBaseException diagnosing the problem
+         * @return ({@link PyExc#TypeError TypeError}) diagnosing the
+         *     problem
          */
         /*
          * Compare CPython ceval.c::positional_only_passed_as_keyword(),
@@ -1196,7 +1202,8 @@ class ArgParser {
          * @param missing number of missing arguments
          * @param defcount number of positional defaults available (or
          *     -1)
-         * @return TypeError listing names of the missing arguments
+         * @return ({@link PyExc#TypeError TypeError}) listing names of
+         *     the missing arguments
          */
         /*
          * Compare CPython ceval.c::missing_arguments(). Unlike that
@@ -1358,8 +1365,11 @@ class ArgParser {
      * @param frame to populate with argument values
      * @param args positional arguments given
      * @param kwargs keyword arguments given
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the arguments do not match the signature.
      */
-    void parseToFrame(FrameWrapper frame, PyTuple args, PyDict kwargs) {
+    void parseToFrame(FrameWrapper frame, PyTuple args, PyDict kwargs)
+            throws PyBaseException {
 
         final int nargs = args.size();
 
@@ -1410,9 +1420,11 @@ class ArgParser {
      * @param nargs number of arguments in the slice, whether position
      *     or keyword
      * @param kwnames (implying number) of keyword arguments
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the arguments do not match the signature.
      */
     void parseToFrame(FrameWrapper frame, Object[] stack, int start,
-            int nargs, String[] kwnames) {
+            int nargs, String[] kwnames) throws PyBaseException {
 
         // Number of arguments given by keyword
         int nkwargs = kwnames == null ? 0 : kwnames.length;
@@ -1472,9 +1484,11 @@ class ArgParser {
      * @param frame to populate with argument values
      * @param args all arguments, positional then keyword
      * @param kwnames of keyword arguments (or {@code null})
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the arguments do not match the signature.
      */
     void parseToFrame(FrameWrapper frame, Object[] args,
-            String[] kwnames) {
+            String[] kwnames) throws PyBaseException {
 
         // Number of arguments given by keyword
         int nkwargs = kwnames == null ? 0 : kwnames.length;

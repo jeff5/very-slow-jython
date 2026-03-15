@@ -55,7 +55,7 @@ import uk.co.farowl.vsj4.codegen.JVM17FrameFactory.FrameClassBuilder;
 class JVM17FrameTest extends UnitTestSupport {
 
     /** Write generated classes here. (Dump with {@code javap}.) */
-    // Make this null to turn of this debug output.
+    // Make this null to turn off this debug output.
     private static Path DEBUG_FRAME_CLASSES = Path.of("temp");
 
     /** Subclass factory to use in creating subclasses. */

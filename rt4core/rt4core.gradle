@@ -55,7 +55,7 @@ testing {
             targets {
                 all {
                     testTask.configure {
-                        // Log output will show when kernel is re-used
+                        // Log according to current interests
                         systemProperty(
                             'java.util.logging.config.file',
                             getProject().file('config/test.logging.properties') )
