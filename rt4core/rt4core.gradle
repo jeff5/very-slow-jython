@@ -135,15 +135,25 @@ tasks.named('check') {
 }
 
 
-// Sources and destinations when generating Java object implementations
+// Location of generated (Java) source
 
 def genSourcesDir = "$buildDir/generated/sources"
-def genOutputDir = "$genSourcesDir/javaTemplate"
-def genJavaDir = "$genOutputDir/java/main"
-def genTestJavaDir = "$genOutputDir/java/test"
 
-def genInputDir = getProject().file('src/main/javaTemplate')
-def genTestInputDir = getProject().file('src/test/javaTemplate')
+// Sources and destinations when generating Java object implementations
+
+def templateInputDir = getProject().file('src/main/javaTemplate')
+def templateOutputDir = "$genSourcesDir/javaTemplate"
+def templateJavaDir = "$templateOutputDir/java/main"
+
+def templateTestInputDir = getProject().file('src/test/javaTemplate')
+def templateTestJavaDir = "$templateOutputDir/java/test"
+
+// Sources and destinations when generating the parser
+
+// \generated\sources\pegen\java\main
+
+def pegenOutputDir = "$genSourcesDir/pegen"
+def pegenJavaDir = "$pegenOutputDir/java/main"
 
 
 // Source and destinations of Python source test material
@@ -159,13 +169,14 @@ sourceSets {
 
     main {
         java {
-            srcDir genJavaDir
+            srcDir templateJavaDir
+            srcDir pegenJavaDir
         }
     }
 
     test {
         java {
-            srcDir genTestJavaDir
+            srcDir templateTestJavaDir
         }
         resources {
             srcDir testPythonExampleOutputDir
@@ -192,17 +203,31 @@ task pythonVersion(type: PythonExec) {
 }
 
 
+// Generate Generate AST classes from Python.asdl
+
+task generateAST(type: PythonExec,
+        description: 'Generate AST classes from ASDL',
+        dependsOn: pythonVersion) {
+    // Python script to generate AST classes
+    args getProject().file('tools/python/asdl_java.py')
+    // Package name to give the AST classes (align with main code)
+    args '--ast-package'
+    args 'uk.co.farowl.vsj4.internal.ast'
+}
+compileJava.dependsOn(generateAST)
+
+
 // Generate Python object definitions
 
-task generateJava(type: PythonExec,
+task generateJavaTemplate(type: PythonExec,
         description: 'Generate object definitions from templates',
         dependsOn: pythonVersion) {
     args getProject().file('tools/python/java_object_gen.py')
     args '--verbose'
-    args genInputDir
-    args genJavaDir
+    args templateInputDir
+    args templateJavaDir
 }
-compileJava.dependsOn(generateJava)
+compileJava.dependsOn(generateJavaTemplate)
 
 
 // Copy and compile Python source examples to the build tree
@@ -237,7 +262,7 @@ javadoc {
 // Using an Exec task because we failed to make a Javadoc task work.
 task moduleJavadoc(type:Exec,
         description: 'Generate Javadoc for Client API (Exec task)',
-        dependsOn: generateJava) {
+        dependsOn: compileJava) {
 
     inputs.files(sourceSets.main.allJava)
     executable = "javadoc"
@@ -262,7 +287,7 @@ task moduleJavadoc(type:Exec,
 // Something like this should work but it fails in the javadoc command.
 task brokenModuleJavadoc(type:Javadoc,
         description: 'Generate Javadoc for module API (broken)',
-        dependsOn: generateJava) {
+        dependsOn: compileJava) {
     source = sourceSets.main.allJava
     title = "rt4core Client API (broken)"
     destinationDir = file("${buildDir}/docs/broken-api")
@@ -293,7 +318,7 @@ task brokenModuleJavadoc(type:Javadoc,
 // Using an Exec task because we failed to make a Javadoc task work.
 task internalJavadoc(type:Exec,
         description: 'Generate project internal Javadoc',
-        dependsOn: generateJava) {
+        dependsOn: compileJava) {
 
     inputs.files(sourceSets.main.allJava)
     executable = "javadoc"
@@ -320,7 +345,7 @@ task internalJavadoc(type:Exec,
 // Something like this should work but it fails in the javadoc command.
 task brokenInternalJavadoc(type:Javadoc,
         description: 'Generate project internal Javadoc (broken)',
-        dependsOn: generateJava) {
+        dependsOn: compileJava) {
 
     source(sourceSets.main.allJava)
     title = "rt4core Project Internal Javadoc (broken)"

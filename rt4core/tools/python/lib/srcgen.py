@@ -37,7 +37,7 @@ class IndentedEmitter:
         self.stream = stream or sys.stdout
         self.width = width if width is not None else 70
         self.indent = indent if indent is not None else 1
-        # Output buffer when lines are pieced together
+        # Output buffer where lines are pieced together
         self.buf = io.StringIO()
 
     def flush(self):
@@ -51,9 +51,11 @@ class IndentedEmitter:
     close = flush  # synonym for the benefit of "with closing(...)"
 
     def emit(self, text="", suffix=""):
-        """Write the text+suffix to self.buf.
+        """Write the text+suffix to the output line.
 
-        Start a new line if necessary.
+        Start a new line beforehand if necessary. The utility
+        of separate text and suffix arguments is to avoid
+        concatenation before text hits the buffer.
         """
         n = len(text)
         if suffix:
