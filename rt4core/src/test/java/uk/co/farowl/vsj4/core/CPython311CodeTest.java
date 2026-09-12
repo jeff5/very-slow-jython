@@ -140,6 +140,7 @@ class CPython311CodeTest extends UnitTestSupport {
         @Test
         void co_name() { assertEquals("<module>", code.name); }
 
+        @Test
         void co_names() { checkNames(code.co_names(), EMPTY_STRINGS); }
 
         @Test

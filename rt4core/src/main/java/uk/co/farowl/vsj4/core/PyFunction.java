@@ -31,10 +31,10 @@ import uk.co.farowl.vsj4.types.WithDict;
  * object, chosen by the compiler that processes the Python function or
  * module body, supplies the specialisations subsequently needed.
  */
-public class PyFunction implements WithDict {
+public class PyFunction implements WithDict, FastCall {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType
+    public static final PyType TYPE = PyType
             .fromSpec(new TypeSpec("function", MethodHandles.lookup()));
 
     /**
@@ -169,9 +169,9 @@ public class PyFunction implements WithDict {
      *     size expected by code or {@code null} if empty.
      */
     // Compare CPython PyFunction_NewWithQualName in funcobject.c
-    PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
-            Object[] defaults, PyDict kwdefaults, Object annotations,
-            PyCell[] closure) {
+    public PyFunction(Interpreter interpreter, PyCode code,
+            PyDict globals, Object[] defaults, PyDict kwdefaults,
+            Object annotations, PyCell[] closure) {
         // We differ from CPython in requiring this reference
         this.interpreter = interpreter;
         assert interpreter != null;
@@ -219,7 +219,8 @@ public class PyFunction implements WithDict {
      *     {@code null}
      */
     // Compare CPython PyFunction_NewWithQualName in funcobject.c
-    PyFunction(Interpreter interpreter, PyCode code, PyDict globals) {
+    public PyFunction(Interpreter interpreter, PyCode code,
+            PyDict globals) {
         this(interpreter, code, globals, null, null, null, null);
     }
 
@@ -456,24 +457,52 @@ public class PyFunction implements WithDict {
      * @throws Throwable for errors raised in the function
      */
     Object __call__(Object[] args, String[] names) throws Throwable {
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            // Translate ArgumentError to Python TypeError
+            throw typeError(ae, args, names);
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Object __repr__() {
+        return String.format("<function %.100s at %#x>", qualname,
+                Py.id(this));
+    }
+
+    // FastCall support ----------------------------------------------
+
+    /*
+     * For many of our built-in callables, we provide Java subclasses
+     * that specialise one of the call signatures of FastCall to suit
+     * the number of parameters expected by the Java implementation
+     * method (the Java method found at a handle held by the callable).
+     * This is not possible for PyFunction for the simple reason that
+     * the code object is replaceable, and so the signature may change,
+     * and the identity of the PyFunction object remain the same.
+     */
+
+    @Override
+    public Object call(Object[] args, String[] names)
+            throws ArgumentError, Throwable {
         // Create a loose frame matching the PyCode
         PyFrame<? extends PyCode> frame = code.createFrame(this, null);
 
         // Custom implementations may have a fast path
-        FastCall fast = frame;
         if (names == null || names.length == 0) {
             // Only positional arguments were given
             switch (args.length) {
                 case 0:
-                    return fast.call();
+                    return frame.call();
                 case 1:
-                    return fast.call(args[0]);
+                    return frame.call(args[0]);
                 case 2:
-                    return fast.call(args[0], args[1]);
+                    return frame.call(args[0], args[1]);
                 case 3:
-                    return fast.call(args[0], args[1], args[2]);
+                    return frame.call(args[0], args[1], args[2]);
                 case 4:
-                    return fast.call(args[0], args[2], args[2],
+                    return frame.call(args[0], args[2], args[2],
                             args[3]);
                 default:
                     // If this fails, add more cases.
@@ -481,16 +510,18 @@ public class PyFunction implements WithDict {
                     break;
             }
             // Fall through to the slow path
+            names = null;
         }
 
         // Fill the frame variables and eval() the frame.
         return frame.call(args, names);
     }
 
-    @SuppressWarnings("unused")
-    private Object __repr__() {
-        return String.format("<function %.100s at %#x>", qualname,
-                Py.id(this));
+    @Override
+    public PyBaseException typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        // We can use the default message format, adding only the name.
+        return FastCall.typeError(code.name, ae, args, names);
     }
 
     // Plumbing ------------------------------------------------------
@@ -531,7 +562,7 @@ public class PyFunction implements WithDict {
      * @param c object to test (not {@code null}).
      * @return {@code c}
      */
-    protected PyCode checkFreevars(PyCode c) {
+    PyCode checkFreevars(PyCode c) {
         PyUtil.errorIfNull(c, () -> PyErr.format(PyExc.TypeError,
                 "__code__ must be set to a code object"));
         int nfree = c.layout().nfreevars();

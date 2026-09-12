@@ -5,7 +5,7 @@
 /local/
 **/venv/
 **/venv/
-**/.venv/
+**/*.venv/
 **/*-env/
 
 # Generated during build
@@ -15,8 +15,8 @@
 **/_templates/
 
 # Places and extensions I use for non-SCM-able scraps
-/scraps/
-/temp/
+**/scraps/
+**/temp/
 *.saved
 
 # IDE Files (I don't check mine in: get your own!)
@@ -26,6 +26,7 @@
 .settings/
 .pydevproject
 .idea/
+.vscode/
 
 # Droppings of various tools, not for the record
 *.class
