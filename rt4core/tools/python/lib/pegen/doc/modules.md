@@ -2,7 +2,9 @@
 
 Here is a little help to navigate the code.
 We describe how it was in Pegen2. 
-Currently, only some of this is present in the code base.
+Currently, only some of this is present in the code base,
+as we do not check in what we do not yet use.
+
 
 ## A Dependency Map
 
@@ -106,7 +108,7 @@ but at the time of writing some pragmatism is necessary.
 | tools/python/lib         | asdl.py                | = asdl.py             | Parser                    |
 | tools/python/codegen     | javagen.py             | -                     | -                         |
 | tools/python/codegen     | java_type_converter.py | -                     | -                         |
-| tools/python/lib/pegen   | \_\_main__.py          | ~ \_\_main__.py       | Tools/peg_generator/pegen |
+| tools/python/lib/pegen   | command.py             | ~ \_\_main__.py       | Tools/peg_generator/pegen |
 | tools/python/lib/pegen   | action_translator.py   | -                     | -                         |
 | tools/python/lib/pegen   | build.py               | + build.py            | Tools/peg_generator/pegen |
 | tools/python/lib/pegen   | c_generator.py         | = c_generator.py      | Tools/peg_generator/pegen |
